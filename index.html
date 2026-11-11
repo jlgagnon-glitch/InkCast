@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1d2733">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<title>InkCast</title>
+<style>
+:root{--bar:#1d2733;--bar2:#253241;--fg:#e8eef5;--accent:#3d8bfd;--rec:#e5484d}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#c3cad3;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;overscroll-behavior:none}
+body{display:flex;flex-direction:column}
+#toolbar{touch-action:pan-x;display:flex;align-items:center;gap:4px;padding:6px 8px;background:var(--bar);color:var(--fg);overflow-x:auto;scrollbar-width:none;flex:none}
+#toolbar::-webkit-scrollbar{display:none}
+.grp{display:flex;align-items:center;gap:3px;padding:0 6px;border-right:1px solid #3a4858;flex:none}
+.grp.last{border:0}
+.btn{height:44px;min-width:44px;padding:0 8px;border:0;border-radius:10px;background:transparent;color:var(--fg);display:inline-flex;align-items:center;
+  justify-content:center;gap:6px;font:500 14px system-ui,sans-serif;cursor:pointer;flex:none;-webkit-tap-highlight-color:transparent}
+.btn svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btn:active{background:#34424f}
+.btn.on{background:var(--accent);color:#fff}
+.btn:disabled{opacity:.35}
+.sw{width:30px;height:30px;border-radius:50%;border:0;box-shadow:inset 0 0 0 1.5px #0007;flex:none;cursor:pointer;margin:0 2px;padding:0}
+.sw.on{outline:3px solid var(--accent);outline-offset:2px}
+.size .dot{background:currentColor;border-radius:50%;display:block}
+.spacer{flex:1 0 8px}
+#recBtn{background:var(--rec);color:#fff;padding:0 14px;font-weight:600}
+#recBtn .rd{width:14px;height:14px;border-radius:50%;background:#fff}
+#recInfo{display:none;align-items:center;gap:6px}
+body.recording #recInfo{display:flex}
+body.recording #recBtn{display:none}
+.timer{font:600 17px ui-monospace,Menlo,monospace;min-width:62px;color:#fff}
+.live{width:12px;height:12px;border-radius:50%;background:var(--rec);animation:blink 1s infinite}
+body.paused .live{animation:none;background:#f5a623}
+@keyframes blink{50%{opacity:.2}}
+.meter{width:40px;height:6px;background:#0007;border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:#3ddc84;transition:width .08s}
+#stopBtn{background:#fff;color:var(--rec)}
+#stopBtn svg{fill:currentColor;stroke:none}
+#stageWrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative}
+#stage{position:relative;box-shadow:0 4px 20px #0003;background:#fff}
+body.recording #stage{box-shadow:0 0 0 3px var(--rec),0 4px 20px #0003}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#pagebar{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;padding:4px 8px;background:var(--bar2);color:var(--fg);flex:none}
+#pageLbl{min-width:76px;text-align:center;font:600 15px system-ui,sans-serif}
+#delSel{display:none;background:#5a2a2e}
+body.has-sel #delSel{display:inline-flex}
+.pop{position:fixed;background:#fff;color:#1d2733;border-radius:12px;box-shadow:0 10px 30px #0005;padding:6px;display:none;z-index:40;min-width:240px}
+.pop.open{display:block}
+.pop button{display:flex;width:100%;align-items:center;gap:12px;padding:12px;border:0;background:none;font:15px system-ui,sans-serif;border-radius:8px;text-align:left;color:inherit;cursor:pointer}
+.pop button:active{background:#eef2f6}
+.pop button.on{background:#e3eeff;font-weight:600}
+.pop hr{border:0;border-top:1px solid #e3e7ec;margin:4px 0}
+.bgprev{width:44px;height:26px;border-radius:4px;border:1px solid #c5ccd5;flex:none}
+#pagesPanel{position:fixed;left:0;top:0;bottom:0;width:270px;background:#eef1f4;transform:translateX(-105%);transition:transform .2s;z-index:30;display:flex;flex-direction:column;box-shadow:4px 0 24px #0004}
+#pagesPanel.open{transform:none}
+#pagesPanel header{display:flex;align-items:center;padding:8px 8px 8px 16px;background:var(--bar);color:var(--fg);font:600 17px system-ui,sans-serif}
+#thumbs{flex:1;overflow-y:auto;padding:10px;touch-action:pan-y}
+.th{background:#fff;border-radius:10px;padding:6px;margin-bottom:10px;border:3px solid transparent;box-shadow:0 1px 4px #0002}
+.th.cur{border-color:var(--accent)}
+.th canvas{width:100%;display:block;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #0001}
+.th .row{display:flex;align-items:center;gap:4px;margin-top:4px;font:600 14px system-ui,sans-serif;color:#33414f}
+.th .row .btn{height:34px;min-width:34px;color:#33414f;padding:0 4px}
+.th .row .btn svg{width:20px;height:20px}
+.th .row span{flex:1;padding-left:4px}
+#pagesPanel footer{display:flex;gap:6px;padding:8px;background:#dde2e8}
+#pagesPanel footer .btn{flex:1;background:#fff;color:#1d2733}
+#countdown{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font:700 180px system-ui,sans-serif;color:#fff;
+  text-shadow:0 4px 30px #000c;pointer-events:none;z-index:50}
+#toast{position:fixed;left:50%;top:140px;transform:translateX(-50%);background:#1d2733ee;color:#fff;padding:12px 18px;border-radius:12px;font:15px system-ui,sans-serif;
+  z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+#busy{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:55;color:#fff;font:600 18px system-ui,sans-serif}
+#busy.show{display:flex}
+dialog{border:0;border-radius:16px;padding:20px;max-width:min(760px,94vw);width:760px;font-family:system-ui,sans-serif;color:#1d2733}
+dialog::backdrop{background:#000a}
+dialog h2{margin:0 0 12px;font-size:20px}
+dialog video{width:100%;max-height:55vh;background:#000;border-radius:8px;display:block}
+dialog .acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+dialog .acts .btn{background:#e8edf3;color:#1d2733;padding:0 16px}
+dialog .acts .btn.primary{background:var(--accent);color:#fff}
+dialog .acts .btn.danger{color:#b4232a}
+dialog p{margin:6px 0;color:#4a5866;line-height:1.45}
+@media (max-width:1100px){#toolbar,#pagebar{flex-wrap:wrap;overflow:visible;row-gap:4px}#toolbar .spacer{display:none}}
+dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="grp">
+    <button class="btn" id="pagesBtn" title="Pages"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="12" height="15" rx="1.5"/><path d="M8 21h11V7"/></svg></button>
+  </div>
+  <div class="grp" id="tools">
+    <button class="btn" data-tool="pen" title="Pen"><svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg></button>
+    <button class="btn" data-tool="hl" title="Highlighter"><svg viewBox="0 0 24 24"><path d="M9 14l-5 6h7l1.5-1.5"/><path d="M9 14l8-10 4 3.5-8 10z"/></svg></button>
+    <button class="btn" data-tool="eraser" title="Eraser (or hold the S Pen button)"><svg viewBox="0 0 24 24"><path d="M8 20h12"/><path d="M4.5 15.5l9.5-9.5 5 5-8.5 8.5H8z"/><path d="M9 11l5 5"/></svg></button>
+    <button class="btn" data-tool="laser" title="Laser pointer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
+    <button class="btn" data-tool="move" title="Select / move images"><svg viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L16 19l-2.6 1.3-3.5-6.8L6 17z"/></svg></button>
+  </div>
+  <div class="grp" id="colors"></div>
+  <div class="grp" id="sizes">
+    <button class="btn size" data-size="0" title="Thin"><span class="dot" style="width:5px;height:5px"></span></button>
+    <button class="btn size" data-size="1" title="Medium"><span class="dot" style="width:9px;height:9px"></span></button>
+    <button class="btn size" data-size="2" title="Thick"><span class="dot" style="width:15px;height:15px"></span></button>
+  </div>
+  <div class="grp">
+    <button class="btn" id="undoBtn" title="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></button>
+    <button class="btn" id="redoBtn" title="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/></svg></button>
+  </div>
+  <div class="spacer"></div>
+  <div class="grp last">
+    <button class="btn" id="recBtn" title="Start recording"><span class="rd"></span>Record</button>
+    <div id="recInfo">
+      <span class="live"></span><span class="timer" id="timer">00:00</span>
+      <span class="meter" title="Microphone level"><i id="meterBar"></i></span>
+      <button class="btn" id="pauseBtn" title="Pause"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg></button>
+      <button class="btn" id="stopBtn" title="Stop and save"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+    </div>
+    <button class="btn" id="menuBtn" title="More"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="19" r="1.3"/></svg></button>
+  </div>
+</div>
+
+<div id="stageWrap">
+  <div id="stage">
+    <canvas id="board" width="1920" height="1080"></canvas>
+    <canvas id="overlay" width="1920" height="1080"></canvas>
+  </div>
+</div>
+
+<div id="pagebar">
+  <button class="btn" id="prevBtn" title="Previous page"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <span id="pageLbl">1 / 1</span>
+  <button class="btn" id="nextBtn" title="Next page"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  <button class="btn" id="addPageBtn" title="Add a page after this one"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Page</button>
+  <div class="grp" style="border-left:1px solid #3a4858;border-right:0">
+    <button class="btn" id="photoBtn" title="Import photos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-8 8"/></svg>Photo</button>
+    <button class="btn" id="pdfBtn" title="Import a PDF (each page becomes a board page)"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15l3 3 3-3"/></svg>PDF</button>
+    <button class="btn" id="bgBtn" title="Page background"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Background</button>
+    <button class="btn" id="savePdfBtn" title="Save all pages as one PDF"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Save PDF</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="delSel" title="Delete the selected image"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Delete image</button>
+  <button class="btn" id="zoomBtn" title="Reset zoom">100%</button>
+</div>
+
+<aside id="pagesPanel">
+  <header><span style="flex:1">Pages</span><button class="btn" id="closePages" title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div id="thumbs"></div>
+  <footer>
+    <button class="btn" id="panelAdd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New</button>
+    <button class="btn" id="panelDup"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/></svg>Duplicate</button>
+  </footer>
+</aside>
+
+<div class="pop" id="bgPop">
+  <button data-bg="white"><span class="bgprev" style="background:#fff"></span>Plain white</button>
+  <button data-bg="grid"><span class="bgprev" style="background-color:#fff;background-image:linear-gradient(#bcd0e8 1px,transparent 1px),linear-gradient(90deg,#bcd0e8 1px,transparent 1px);background-size:6px 6px"></span>Graph paper</button>
+  <button data-bg="lined"><span class="bgprev" style="background:#fff repeating-linear-gradient(#fff 0 5px,#bcd2ea 5px 6px)"></span>Lined</button>
+  <button data-bg="dark"><span class="bgprev" style="background:#1f2e2b"></span>Chalkboard</button>
+  <hr>
+  <button id="bgAll">Apply to all pages</button>
+</div>
+
+<div class="pop" id="menuPop">
+  <button id="mLast">Show last recording</button>
+  <button id="mFinger">Finger drawing: off</button>
+  <hr>
+  <button id="mClear">Clear this page</button>
+  <button id="mNew">New board (delete all pages)</button>
+  <hr>
+  <button id="mHelp">How to use</button>
+</div>
+
+<div id="countdown"></div>
+<div id="toast"></div>
+<div id="busy"><span id="busyMsg">Working…</span></div>
+
+<dialog id="resultDlg">
+  <h2 id="resTitle">Recording ready</h2>
+  <div id="resBody"></div>
+  <div class="fname" id="resName"></div>
+  <div class="acts">
+    <button class="btn primary" id="resSave">Save to device</button>
+    <button class="btn" id="resShare">Share…</button>
+    <span class="spacer"></span>
+    <button class="btn" id="resClose">Close</button>
+  </div>
+</dialog>
+
+<dialog id="helpDlg">
+  <h2>How to use InkCast</h2>
+  <p><b>Write</b> with the S Pen. Once the app sees the pen, your fingers only <b>pan and pinch-zoom</b>, so your palm won't leave marks. (Turn on <i>Finger drawing</i> in the ⋮ menu to draw with a finger.)</p>
+  <p><b>Erase</b> with the eraser tool, or hold the S Pen side button while you write. The eraser removes whole strokes, never images.</p>
+  <p><b>Photo</b> places pictures on the page. <b>PDF</b> turns each PDF page into a board page you can write on. Use the arrow tool to move an image, or drag its corner dot to resize it.</p>
+  <p><b>Record</b> captures the board and your voice after a 3-second countdown. You can pause, change pages, zoom, and use the laser pointer while recording. Press the square to stop, then save or share the video.</p>
+  <p><b>Save PDF</b> exports every page (with your writing) as one PDF. Your board is saved on the tablet automatically.</p>
+  <div class="acts"><span class="spacer"></span><button class="btn primary" id="helpClose">Got it</button></div>
+</dialog>
+
+<input type="file" id="photoInput" accept="image/*" multiple hidden>
+<input type="file" id="pdfInput" accept="application/pdf,.pdf" hidden>
+
+<script>
+'use strict';
+/* ================= constants & state ================= */
+const W = 1920, H = 1080;                 // board (and video) resolution
+const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/';
+const SIZES = { pen: [3, 6, 12], hl: [18, 32, 52], eraser: [14, 32, 64] };
+const COLORS = ['#1a1a1a', '#1f5fd6', '#d62f2f', '#1e9e4a', '#f08c00', '#f5d300', '#7b3fd1', '#ffffff'];
+const $ = s => document.querySelector(s);
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+const board = $('#board'), bctx = board.getContext('2d');
+const overlay = $('#overlay'), octx = overlay.getContext('2d');
+const cache = document.createElement('canvas'); cache.width = W; cache.height = H;
+const cctx = cache.getContext('2d');
+
+const prefs = Object.assign({ tool: 'pen', color: COLORS[1], size: 1, fingerDraw: false, penSeen: false },
+  JSON.parse(localStorage.getItem('inkcast-prefs') || '{}'));
+const savePrefs = () => localStorage.setItem('inkcast-prefs', JSON.stringify(prefs));
+
+const state = { pages: [], cur: 0, sel: null };
+let cacheDirty = true, needsDraw = true, overlayDirty = true;
+let active = null;          // current pen/mouse/finger action
+let gesture = null;         // current pan/zoom gesture
+const touches = new Map();  // live touch points (canvas coords)
+let hover = null;           // pen hover point (for eraser cursor)
+const laser = { pts: [], down: false };
+
+const newPage = (bg = 'white') => ({ id: uid(), bg, items: [], undo: [], redo: [], view: { s: 1, tx: 0, ty: 0 } });
+const page = () => state.pages[state.cur];
+function changed(save = true) { cacheDirty = true; overlayDirty = true; if (save) scheduleSave(); updateUI(); }
+
+/* ================= drawing ================= */
+function drawBg(ctx, bg) {
+  ctx.fillStyle = bg === 'dark' ? '#1f2e2b' : '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.beginPath();
+  if (bg === 'grid') {
+    ctx.lineWidth = 1; ctx.strokeStyle = '#dde7f3';
+    for (let x = 30; x < W; x += 30) if (x % 150) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = 30; y < H; y += 30) if (y % 150) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke(); ctx.beginPath(); ctx.lineWidth = 1.6; ctx.strokeStyle = '#b6cae3';
+    for (let x = 150; x < W; x += 150) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let y = 150; y < H; y += 150) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+  } else if (bg === 'lined') {
+    ctx.lineWidth = 1.6; ctx.strokeStyle = '#c3d7ee';
+    for (let y = 120; y < H; y += 60) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke(); ctx.beginPath(); ctx.strokeStyle = '#f0a8a8';
+    ctx.moveTo(160, 0); ctx.lineTo(160, H); ctx.stroke();
+  }
+}
+const widthAt = (st, p) => st.w * (0.35 + 1.1 * p);
+function drawStroke(ctx, st) {
+  const p = st.pts, n = p.length / 3;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = st.color;
+  if (st.tool === 'hl') {
+    ctx.globalAlpha = 0.35; ctx.lineWidth = st.w; ctx.beginPath(); ctx.moveTo(p[0], p[1]);
+    if (n === 1) ctx.lineTo(p[0] + 0.1, p[1]);
+    for (let i = 1; i < n - 1; i++) ctx.quadraticCurveTo(p[3*i], p[3*i+1], (p[3*i] + p[3*i+3]) / 2, (p[3*i+1] + p[3*i+4]) / 2);
+    if (n > 1) ctx.lineTo(p[3*n-3], p[3*n-2]);
+    ctx.stroke(); ctx.globalAlpha = 1; return;
+  }
+  if (n === 1) {
+    ctx.fillStyle = st.color; ctx.beginPath();
+    ctx.arc(p[0], p[1], widthAt(st, p[2]) / 2, 0, Math.PI * 2); ctx.fill(); return;
+  }
+  let px = p[0], py = p[1];
+  for (let i = 1; i < n; i++) {
+    const x0 = p[3*i-3], y0 = p[3*i-2], x1 = p[3*i], y1 = p[3*i+1];
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.quadraticCurveTo(x0, y0, mx, my);
+    ctx.lineWidth = widthAt(st, (p[3*i-1] + p[3*i+2]) / 2); ctx.stroke();
+    px = mx; py = my;
+  }
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(p[3*n-3], p[3*n-2]); ctx.stroke();
+}
+function renderPage(ctx, pg, view, cw = W, ch = H) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cw, ch);
+  ctx.setTransform(view.s, 0, 0, view.s, view.tx, view.ty);
+  drawBg(ctx, pg.bg);
+  for (const it of pg.items) {
+    if (it.type === 'image') { if (it.img) ctx.drawImage(it.img, it.x, it.y, it.w, it.h); }
+    else drawStroke(ctx, it);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+function drawLaser(ctx, view) {
+  const now = performance.now();
+  laser.pts = laser.pts.filter(q => now - q.t < 700);
+  if (!laser.pts.length) return;
+  ctx.setTransform(view.s, 0, 0, view.s, view.tx, view.ty);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let i = 1; i < laser.pts.length; i++) {
+    const a = laser.pts[i-1], b = laser.pts[i], f = 1 - (now - b.t) / 700;
+    ctx.strokeStyle = `rgba(255,40,40,${0.7 * f})`; ctx.lineWidth = (4 + 6 * f) / view.s;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  if (laser.down) {
+    const h = laser.pts[laser.pts.length - 1];
+    ctx.shadowColor = '#ff2a2a'; ctx.shadowBlur = 24;
+    ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.arc(h.x, h.y, 11 / view.s, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(h.x, h.y, 4 / view.s, 0, 7); ctx.fill();
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+function drawOverlay() {
+  octx.clearRect(0, 0, W, H);
+  const v = page().view;
+  const sel = state.sel;
+  if (sel && prefs.tool === 'move' && page().items.includes(sel)) {
+    const x = sel.x * v.s + v.tx, y = sel.y * v.s + v.ty, w = sel.w * v.s, h = sel.h * v.s;
+    octx.lineWidth = 3; octx.setLineDash([12, 8]); octx.strokeStyle = '#3d8bfd'; octx.strokeRect(x, y, w, h);
+    octx.setLineDash([]); octx.fillStyle = '#3d8bfd'; octx.strokeStyle = '#fff';
+    octx.beginPath(); octx.arc(x + w, y + h, 18, 0, 7); octx.fill(); octx.stroke();
+  }
+  const ep = active && active.tool === 'eraser' ? active.lastC : (hover && prefs.tool === 'eraser' ? hover : null);
+  if (ep) {
+    octx.lineWidth = 2; octx.strokeStyle = '#555'; octx.fillStyle = '#ffffff55';
+    octx.beginPath(); octx.arc(ep.x, ep.y, SIZES.eraser[prefs.size] * v.s, 0, 7); octx.fill(); octx.stroke();
+  }
+}
+function frame() {
+  const pg = page();
+  if (pg) {
+    if (cacheDirty) { renderPage(cctx, pg, pg.view); cacheDirty = false; needsDraw = true; }
+    if (needsDraw || rec.active || laser.pts.length) {
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+      bctx.drawImage(cache, 0, 0);
+      if (active && active.stroke) {
+        const v = pg.view; bctx.setTransform(v.s, 0, 0, v.s, v.tx, v.ty);
+        drawStroke(bctx, active.stroke); bctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      drawLaser(bctx, pg.view);
+      needsDraw = false;
+    }
+    if (overlayDirty) { drawOverlay(); overlayDirty = false; }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ================= geometry helpers ================= */
+function toCanvas(e) {
+  const r = overlay.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+function toWorld(c) { const v = page().view; return { x: (c.x - v.tx) / v.s, y: (c.y - v.ty) / v.s }; }
+function clampView(v) {
+  v.s = Math.min(6, Math.max(1, v.s));
+  v.tx = Math.min(0, Math.max(W - W * v.s, v.tx));
+  v.ty = Math.min(0, Math.max(H - H * v.s, v.ty));
+  return v;
+}
+function bbox(st) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; const p = st.pts;
+  for (let i = 0; i < p.length; i += 3) { x0 = Math.min(x0, p[i]); x1 = Math.max(x1, p[i]); y0 = Math.min(y0, p[i+1]); y1 = Math.max(y1, p[i+1]); }
+  const m = st.w * 1.5; return [x0 - m, y0 - m, x1 + m, y1 + m];
+}
+function segDist2(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+  let t = L ? ((px - ax) * dx + (py - ay) * dy) / L : 0; t = Math.max(0, Math.min(1, t));
+  const qx = ax + t * dx - px, qy = ay + t * dy - py; return qx * qx + qy * qy;
+}
+function strokeHit(st, x, y, r) {
+  const b = st.bb || (st.bb = bbox(st));
+  if (x < b[0] - r || x > b[2] + r || y < b[1] - r || y > b[3] + r) return false;
+  const p = st.pts, rr = (r + st.w / 2) ** 2;
+  if (p.length === 3) return (p[0] - x) ** 2 + (p[1] - y) ** 2 < rr;
+  for (let i = 3; i < p.length; i += 3) if (segDist2(x, y, p[i-3], p[i-2], p[i], p[i+1]) < rr) return true;
+  return false;
+}
+function imageAt(w) {
+  const it = page().items;
+  for (let i = it.length - 1; i >= 0; i--) {
+    const m = it[i];
+    if (m.type === 'image' && w.x >= m.x && w.x <= m.x + m.w && w.y >= m.y && w.y <= m.y + m.h) return m;
+  }
+  return null;
+}
+
+/* ================= undo ================= */
+function commit(pg, snapshot) {
+  pg.undo.push(snapshot); if (pg.undo.length > 80) pg.undo.shift();
+  pg.redo = []; changed();
+}
+function undo() {
+  const pg = page(); if (!pg.undo.length) return;
+  pg.redo.push(pg.items); pg.items = pg.undo.pop(); state.sel = null; changed();
+}
+function redo() {
+  const pg = page(); if (!pg.redo.length) return;
+  pg.undo.push(pg.items); pg.items = pg.redo.pop(); state.sel = null; changed();
+}
+
+/* ================= pointer input ================= */
+const isPenEraser = e => e.pointerType === 'pen' && ((e.buttons & 32) || (e.buttons & 2) || e.button === 5);
+
+overlay.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  closePops();
+  try { overlay.setPointerCapture(e.pointerId); } catch {}
+  const c = toCanvas(e);
+  if (e.pointerType === 'pen' && !prefs.penSeen) { prefs.penSeen = true; savePrefs(); }
+  if (e.pointerType === 'touch') {
+    if (active && active.pointerType === 'pen') return;          // palm rejection
+    touches.set(e.pointerId, c);
+    const fingerActs = !prefs.penSeen || prefs.fingerDraw || prefs.tool === 'move' || prefs.tool === 'laser';
+    if (touches.size === 1 && fingerActs && !active) { startAction(e, c); return; }
+    if (active && active.pointerType === 'touch') cancelAction();  // second finger → it's a gesture
+    startGesture(); return;
+  }
+  if (active) return;
+  if (e.pointerType === 'pen' && gesture) { gesture = null; touches.clear(); }
+  startAction(e, c);
+});
+overlay.addEventListener('pointermove', e => {
+  const c = toCanvas(e);
+  if (touches.has(e.pointerId)) {
+    touches.set(e.pointerId, c);
+    if (gesture) { moveGesture(); return; }
+  }
+  if (active && active.id === e.pointerId) {
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of (evs.length ? evs : [e])) moveAction(ev, toCanvas(ev));
+    return;
+  }
+  if (e.pointerType === 'pen' && !active) { hover = c; if (prefs.tool === 'eraser') overlayDirty = true; }
+});
+function endPointer(e) {
+  if (touches.has(e.pointerId)) {
+    touches.delete(e.pointerId);
+    if (gesture) { if (touches.size) startGesture(); else gesture = null; }
+  }
+  if (active && active.id === e.pointerId) { if (e.type === 'pointercancel' && active.stroke) cancelAction(); else endAction(); }
+}
+overlay.addEventListener('pointerup', endPointer);
+overlay.addEventListener('pointercancel', endPointer);
+overlay.addEventListener('pointerleave', e => { if (e.pointerType === 'pen' && !active) { hover = null; overlayDirty = true; } });
+overlay.addEventListener('contextmenu', e => e.preventDefault());
+overlay.addEventListener('wheel', e => {
+  e.preventDefault();
+  const v = page().view, c = toCanvas(e), wx = (c.x - v.tx) / v.s, wy = (c.y - v.ty) / v.s;
+  v.s *= Math.exp(-e.deltaY * 0.0015); clampView(v);
+  v.tx = c.x - wx * v.s; v.ty = c.y - wy * v.s; clampView(v); changed(false);
+}, { passive: false });
+
+function pressureOf(e) { return e.pointerType === 'pen' ? Math.max(0.05, e.pressure || 0.5) : 0.5; }
+const r1 = x => Math.round(x * 10) / 10;
+
+function startAction(e, c) {
+  const pg = page(), w = toWorld(c);
+  const tool = isPenEraser(e) ? 'eraser' : prefs.tool;
+  active = { id: e.pointerId, pointerType: e.pointerType, tool, lastC: c };
+  if (tool === 'pen' || tool === 'hl') {
+    const pr = pressureOf(e);
+    active.pr = pr;
+    active.stroke = { type: 'stroke', tool, color: prefs.color, w: SIZES[tool][prefs.size], pts: [r1(w.x), r1(w.y), Math.round(pr * 100) / 100] };
+    needsDraw = true;
+  } else if (tool === 'eraser') {
+    active.snapshot = pg.items.slice(); active.erased = false; active.lastW = w;
+    eraseAlong(w, w); overlayDirty = true;
+  } else if (tool === 'laser') {
+    laser.down = true; laser.pts.push({ x: w.x, y: w.y, t: performance.now() });
+  } else if (tool === 'move') {
+    const sel = state.sel, v = pg.view;
+    if (sel && pg.items.includes(sel) && Math.hypot(c.x - ((sel.x + sel.w) * v.s + v.tx), c.y - ((sel.y + sel.h) * v.s + v.ty)) < 44) {
+      active.mode = 'resize';
+    } else {
+      const hit = imageAt(w);
+      if (!hit) { state.sel = null; active.mode = 'none'; updateUI(); overlayDirty = true;
+        if (e.pointerType === 'touch') { active = null; startGesture(); } return; }
+      state.sel = hit; active.mode = 'move'; active.off = { x: w.x - hit.x, y: w.y - hit.y };
+    }
+    active.snapshot = pg.items.slice();
+    const i = pg.items.indexOf(state.sel), clone = { ...state.sel };
+    pg.items[i] = clone; state.sel = clone; active.moved = false;
+    updateUI(); overlayDirty = true;
+  }
+}
+function moveAction(e, c) {
+  const pg = page(), w = toWorld(c), a = active;
+  a.lastC = c;
+  if (a.stroke) {
+    const p = a.stroke.pts, lx = p[p.length - 3], ly = p[p.length - 2];
+    if (Math.hypot(w.x - lx, w.y - ly) < 1.2 / pg.view.s) return;
+    a.pr = a.pr * 0.6 + pressureOf(e) * 0.4;
+    p.push(r1(w.x), r1(w.y), Math.round(a.pr * 100) / 100); needsDraw = true;
+  } else if (a.tool === 'eraser') {
+    eraseAlong(a.lastW, w); a.lastW = w; overlayDirty = true;
+  } else if (a.tool === 'laser') {
+    laser.pts.push({ x: w.x, y: w.y, t: performance.now() });
+  } else if (a.tool === 'move' && state.sel) {
+    const s = state.sel;
+    if (a.mode === 'move') { s.x = w.x - a.off.x; s.y = w.y - a.off.y; }
+    else if (a.mode === 'resize') { const ar = s.h / s.w; s.w = Math.max(40, w.x - s.x); s.h = s.w * ar; }
+    a.moved = true; cacheDirty = true; overlayDirty = true;
+  }
+}
+function endAction() {
+  const pg = page(), a = active; active = null;
+  if (!a) return;
+  if (a.stroke) {
+    const snap = pg.items.slice(); a.stroke.bb = bbox(a.stroke);
+    pg.items.push(a.stroke); commit(pg, snap);
+  } else if (a.tool === 'eraser') {
+    if (a.erased) commit(pg, a.snapshot); overlayDirty = true;
+  } else if (a.tool === 'laser') {
+    laser.down = false;
+  } else if (a.tool === 'move' && a.snapshot) {
+    if (a.moved) commit(pg, a.snapshot);
+  }
+}
+function cancelAction() {
+  const a = active; active = null; if (!a) return;
+  if (a.snapshot) { page().items = a.snapshot; if (a.tool === 'move') state.sel = null; }
+  if (a.tool === 'laser') laser.down = false;
+  changed(false); needsDraw = true;
+}
+function eraseAlong(from, to) {
+  const pg = page(), r = SIZES.eraser[prefs.size];
+  const d = Math.hypot(to.x - from.x, to.y - from.y), steps = Math.max(1, Math.ceil(d / (r / 2)));
+  let removed = false;
+  for (let k = 0; k <= steps; k++) {
+    const x = from.x + (to.x - from.x) * k / steps, y = from.y + (to.y - from.y) * k / steps;
+    const keep = pg.items.filter(it => !(it.type === 'stroke' && strokeHit(it, x, y, r)));
+    if (keep.length !== pg.items.length) { pg.items = keep; removed = true; }
+  }
+  if (removed) { active.erased = true; cacheDirty = true; }
+}
+function centroid() {
+  const p = [...touches.values()]; let x = 0, y = 0;
+  for (const q of p) { x += q.x; y += q.y; }
+  const c = { x: x / p.length, y: y / p.length };
+  const d = p.length > 1 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0;
+  return { c, d };
+}
+function startGesture() { const { c, d } = centroid(); gesture = { v0: { ...page().view }, c0: c, d0: d }; }
+function moveGesture() {
+  const { c, d } = centroid(), g = gesture, v = page().view;
+  const s = (g.d0 > 0 && d > 0) ? g.v0.s * d / g.d0 : g.v0.s;
+  const wx = (g.c0.x - g.v0.tx) / g.v0.s, wy = (g.c0.y - g.v0.ty) / g.v0.s;
+  v.s = Math.min(6, Math.max(1, s)); v.tx = c.x - wx * v.s; v.ty = c.y - wy * v.s;
+  clampView(v); changed(false);
+}
+
+/* ================= pages ================= */
+function goTo(i) {
+  if (i < 0 || i >= state.pages.length) return;
+  if (active) cancelAction();
+  state.cur = i; state.sel = null; laser.pts = []; changed();
+}
+function addPage(after = state.cur, bg = page() ? page().bg : 'white') {
+  state.pages.splice(after + 1, 0, newPage(bg)); goTo(after + 1);
+}
+function dupPage(i = state.cur) {
+  const src = state.pages[i], p = newPage(src.bg);
+  p.items = src.items.map(it => ({ ...it }));
+  state.pages.splice(i + 1, 0, p); goTo(i + 1);
+}
+function deletePage(i) {
+  if (state.pages.length === 1) { const pg = state.pages[0]; commit(pg, pg.items.slice()); pg.items = []; changed(); return; }
+  state.pages.splice(i, 1);
+  goTo(Math.min(state.cur > i ? state.cur - 1 : state.cur, state.pages.length - 1));
+}
+function movePage(i, dir) {
+  const j = i + dir; if (j < 0 || j >= state.pages.length) return;
+  const P = state.pages; [P[i], P[j]] = [P[j], P[i]];
+  if (state.cur === i) state.cur = j; else if (state.cur === j) state.cur = i;
+  changed();
+}
+function renderThumbs() {
+  const box = $('#thumbs'); box.innerHTML = '';
+  state.pages.forEach((pg, i) => {
+    const d = document.createElement('div'); d.className = 'th' + (i === state.cur ? ' cur' : '');
+    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180;
+    renderPage(cv.getContext('2d'), pg, { s: 320 / W, tx: 0, ty: 0 }, 320, 180);
+    cv.onclick = () => { goTo(i); renderThumbs(); };
+    const row = document.createElement('div'); row.className = 'row';
+    row.innerHTML = `<span>${i + 1}</span>
+      <button class="btn" data-a="up" title="Move up"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+      <button class="btn" data-a="down" title="Move down"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button class="btn" data-a="del" title="Delete page"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>`;
+    row.onclick = ev => {
+      const a = ev.target.closest('button')?.dataset.a; if (!a) return;
+      if (a === 'up') movePage(i, -1);
+      if (a === 'down') movePage(i, 1);
+      if (a === 'del' && confirm(`Delete page ${i + 1}?`)) deletePage(i);
+      renderThumbs();
+    };
+    d.append(cv, row); box.append(d);
+  });
+  box.querySelector('.th.cur')?.scrollIntoView({ block: 'nearest' });
+}
+
+/* ================= storage (IndexedDB autosave) ================= */
+const DB = (() => {
+  let dbp;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('inkcast', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('meta'); r.result.createObjectStore('blobs'); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (store, mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, mode), req = fn(t.objectStore(store));
+      t.oncomplete = () => res(req && req.result); t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    get: (st, k) => tx(st, 'readonly', s => s.get(k)),
+    put: (st, k, v) => tx(st, 'readwrite', s => s.put(v, k)),
+    clear: st => tx(st, 'readwrite', s => s.clear()),
+  };
+})();
+let saveTimer;
+function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 800); }
+async function saveNow() {
+  clearTimeout(saveTimer);
+  const data = {
+    cur: state.cur,
+    pages: state.pages.map(p => ({ id: p.id, bg: p.bg, items: p.items.map(it => it.type === 'image'
+      ? { type: 'image', blobId: it.blobId, x: it.x, y: it.y, w: it.w, h: it.h }
+      : { type: 'stroke', tool: it.tool, color: it.color, w: it.w, pts: it.pts }) }))
+  };
+  try { await DB.put('meta', 'board', data); } catch (err) { console.warn('save failed', err); }
+}
+async function loadImg(blob) {
+  const img = new Image(); img.src = URL.createObjectURL(blob);
+  try { await img.decode(); } catch {}
+  return img;
+}
+async function loadBoard() {
+  let data = null;
+  try { data = await DB.get('meta', 'board'); } catch {}
+  if (data && data.pages && data.pages.length) {
+    for (const pd of data.pages) {
+      const p = newPage(pd.bg); p.id = pd.id;
+      for (const it of pd.items) {
+        if (it.type === 'stroke') { const s = { ...it }; s.bb = bbox(s); p.items.push(s); }
+        else {
+          const blob = await DB.get('blobs', it.blobId).catch(() => null);
+          if (blob) p.items.push({ ...it, img: await loadImg(blob) });
+        }
+      }
+      state.pages.push(p);
+    }
+    state.cur = Math.min(data.cur || 0, state.pages.length - 1);
+  } else state.pages = [newPage()];
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+
+/* ================= import: photos & PDF ================= */
+async function storeImage(blob) { const id = uid(); await DB.put('blobs', id, blob); return id; }
+function fitBox(iw, ih, frac) {
+  const s = Math.min(W * frac / iw, H * frac / ih); const w = iw * s, h = ih * s;
+  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+}
+async function prepPhoto(file) {
+  // downscale very large photos (respects camera orientation)
+  const bmp = await createImageBitmap(file);
+  const MAX = 2560, k = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+  if (k === 1 && file.type !== 'image/heic' && file.size < 6e6) { bmp.close?.(); return file; }
+  const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+  cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); bmp.close?.();
+  return new Promise(r => cv.toBlob(r, file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.9));
+}
+async function importPhotos(files) {
+  busy('Adding photo…');
+  try {
+    let first = true;
+    for (const f of files) {
+      const blob = await prepPhoto(f), img = await loadImg(blob), id = await storeImage(blob);
+      if (!first) addPage();
+      const pg = page(), snap = pg.items.slice();
+      pg.items.push({ type: 'image', blobId: id, img, ...fitBox(img.naturalWidth, img.naturalHeight, 0.85) });
+      commit(pg, snap); first = false;
+    }
+    setTool('move'); state.sel = page().items[page().items.length - 1]; updateUI(); overlayDirty = true;
+    toast('Drag to move the photo, or drag the blue dot to resize. Pick the pen to write.');
+  } catch (err) { console.error(err); alert('Could not add that image: ' + err.message); }
+  busy(false);
+}
+let pdfjsLib = null;
+async function getPdfjs() {
+  if (pdfjsLib) return pdfjsLib;
+  const lib = await import(PDFJS + 'build/pdf.min.mjs');
+  try {   // run the PDF worker off the main thread (cross-origin workers need a same-origin blob)
+    const code = await (await fetch(PDFJS + 'build/pdf.worker.min.mjs')).text();
+    lib.GlobalWorkerOptions.workerPort = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })), { type: 'module' });
+  } catch { lib.GlobalWorkerOptions.workerSrc = PDFJS + 'build/pdf.worker.min.mjs'; }
+  return (pdfjsLib = lib);
+}
+async function importPdf(file) {
+  busy('Opening PDF…');
+  try {
+    const lib = await getPdfjs().catch(() => { throw new Error('The PDF reader needs an internet connection the first time it is used.'); });
+    const doc = await lib.getDocument({ data: await file.arrayBuffer(), cMapUrl: PDFJS + 'cmaps/', cMapPacked: true,
+      standardFontDataUrl: PDFJS + 'standard_fonts/' }).promise;
+    const reuse = page().items.length === 0;
+    let insertAt = state.cur;
+    for (let n = 1; n <= doc.numPages; n++) {
+      busy(`Importing page ${n} of ${doc.numPages}…`);
+      const pdfPage = await doc.getPage(n), vp1 = pdfPage.getViewport({ scale: 1 });
+      const scale = Math.min(W / vp1.width, H / vp1.height) * 1.5;
+      const vp = pdfPage.getViewport({ scale });
+      const cv = document.createElement('canvas'); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+      const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      await pdfPage.render({ canvasContext: ctx, viewport: vp }).promise;
+      const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+      const img = await loadImg(blob), id = await storeImage(blob);
+      let pg;
+      if (n === 1 && reuse) pg = page();
+      else { pg = newPage('white'); insertAt++; state.pages.splice(insertAt, 0, pg); }
+      pg.items.push({ type: 'image', blobId: id, img, ...fitBox(img.naturalWidth, img.naturalHeight, 1) });
+    }
+    goTo(reuse ? state.cur : state.cur + 1);
+    toast(`Imported ${doc.numPages} page${doc.numPages > 1 ? 's' : ''}.`);
+  } catch (err) { console.error(err); alert('Could not import that PDF. ' + err.message); }
+  busy(false);
+}
+
+/* ================= export: all pages → one PDF ================= */
+function buildPdf(jpegs, iw, ih, pw, ph) {
+  const enc = new TextEncoder(), chunks = [], offs = []; let len = 0;
+  const put = d => { if (typeof d === 'string') d = enc.encode(d); chunks.push(d); len += d.length; };
+  const obj = (id, ...parts) => { offs[id] = len; put(`${id} 0 obj\n`); parts.forEach(put); put('\nendobj\n'); };
+  put(new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52, 10, 37, 226, 227, 207, 211, 10])); // %PDF-1.4 + binary marker
+  const n = jpegs.length, kids = [];
+  for (let i = 0; i < n; i++) kids.push(`${3 + 3 * i} 0 R`);
+  obj(1, '<</Type/Catalog/Pages 2 0 R>>');
+  obj(2, `<</Type/Pages/Kids[${kids.join(' ')}]/Count ${n}>>`);
+  jpegs.forEach((jpg, i) => {
+    const pid = 3 + 3 * i, cid = pid + 1, iid = pid + 2;
+    obj(pid, `<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${pw} ${ph}]/Resources<</XObject<</Im0 ${iid} 0 R>>>>/Contents ${cid} 0 R>>`);
+    const cs = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    obj(cid, `<</Length ${cs.length}>>\nstream\n${cs}\nendstream`);
+    obj(iid, `<</Type/XObject/Subtype/Image/Width ${iw}/Height ${ih}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpg.length}>>\nstream\n`, jpg, '\nendstream');
+  });
+  const xref = len, count = 3 + 3 * n;
+  let x = `xref\n0 ${count}\n0000000000 65535 f \n`;
+  for (let i = 1; i < count; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  put(x + `trailer\n<</Size ${count}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+async function exportPdf() {
+  if (active) cancelAction();
+  busy('Making PDF…');
+  try {
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+    const jpegs = [];
+    for (let i = 0; i < state.pages.length; i++) {
+      busy(`Making PDF… page ${i + 1} of ${state.pages.length}`);
+      renderPage(ctx, state.pages[i], { s: 1, tx: 0, ty: 0 });
+      const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+      jpegs.push(new Uint8Array(await b.arrayBuffer()));
+    }
+    const pdf = buildPdf(jpegs, W, H, 960, 540);   // 13.33 × 7.5 in, same as a widescreen slide
+    showResult('pdf', pdf, `InkCast ${stamp()}.pdf`);
+  } catch (err) { console.error(err); alert('Could not make the PDF: ' + err.message); }
+  busy(false);
+}
+
+/* ================= recording ================= */
+const rec = { active: false, mr: null, chunks: [], mic: null, audioCtx: null, analyser: null, t0: 0, acc: 0, paused: false, lock: null, last: null };
+function pickType() {
+  const types = ['video/mp4;codecs="avc1.42E028,mp4a.40.2"', 'video/mp4;codecs=avc1,opus', 'video/mp4',
+    'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  return types.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+}
+async function countdown(n) {
+  const el = $('#countdown'); el.style.display = 'flex';
+  for (let i = n; i > 0; i--) { el.textContent = i; await new Promise(r => setTimeout(r, 800)); }
+  el.style.display = 'none';
+}
+async function startRecording() {
+  if (!window.MediaRecorder || !board.captureStream) { alert('Video recording is not supported in this browser. Please use Chrome.'); return; }
+  let mic = null;
+  try {
+    mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (err) {
+    if (!confirm('The microphone is not available (' + err.name + '). Record without sound?')) return;
+  }
+  closePops();
+  await countdown(3);
+  const vs = board.captureStream(30);
+  const stream = new MediaStream([...vs.getVideoTracks(), ...(mic ? mic.getAudioTracks() : [])]);
+  const mimeType = pickType();
+  let mr;
+  try { mr = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000, audioBitsPerSecond: 128_000 }); }
+  catch { mr = new MediaRecorder(stream); }
+  Object.assign(rec, { active: true, mr, chunks: [], mic, t0: performance.now(), acc: 0, paused: false });
+  mr.ondataavailable = e => { if (e.data && e.data.size) rec.chunks.push(e.data); };
+  mr.onstop = finishRecording;
+  mr.start(1000);
+  if (mic) {
+    try {
+      rec.audioCtx = new AudioContext(); rec.analyser = rec.audioCtx.createAnalyser(); rec.analyser.fftSize = 512;
+      rec.audioCtx.createMediaStreamSource(mic).connect(rec.analyser);
+    } catch {}
+  }
+  try { rec.lock = await navigator.wakeLock?.request('screen'); } catch {}
+  document.body.classList.add('recording'); document.body.classList.remove('paused');
+  setPauseIcon(false);
+}
+function elapsed() { return rec.acc + (rec.paused ? 0 : performance.now() - rec.t0); }
+function togglePause() {
+  if (!rec.active) return;
+  if (rec.paused) { rec.mr.resume(); rec.t0 = performance.now(); rec.paused = false; }
+  else { rec.mr.pause(); rec.acc += performance.now() - rec.t0; rec.paused = true; }
+  document.body.classList.toggle('paused', rec.paused); setPauseIcon(rec.paused);
+}
+function setPauseIcon(p) {
+  $('#pauseBtn').innerHTML = p ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>';
+  $('#pauseBtn').title = p ? 'Resume' : 'Pause';
+}
+function stopRecording() { if (rec.active && rec.mr.state !== 'inactive') rec.mr.stop(); }
+function finishRecording() {
+  const type = (rec.mr.mimeType || 'video/webm').split(';')[0];
+  const blob = new Blob(rec.chunks, { type });
+  rec.mic?.getTracks().forEach(t => t.stop());
+  rec.audioCtx?.close().catch(() => {});
+  rec.lock?.release?.().catch(() => {});
+  Object.assign(rec, { active: false, mic: null, audioCtx: null, analyser: null, lock: null, chunks: [] });
+  document.body.classList.remove('recording', 'paused');
+  $('#timer').textContent = '00:00';
+  const name = `InkCast ${stamp()}.${type.includes('mp4') ? 'mp4' : 'webm'}`;
+  rec.last = { blob, name };
+  showResult('video', blob, name);
+}
+function tickRecUI() {
+  if (rec.active) {
+    const s = Math.floor(elapsed() / 1000);
+    $('#timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    if (rec.analyser) {
+      const a = new Uint8Array(rec.analyser.fftSize); rec.analyser.getByteTimeDomainData(a);
+      let sum = 0; for (const v of a) sum += (v - 128) ** 2;
+      $('#meterBar').style.width = Math.min(100, Math.sqrt(sum / a.length) * 4) + '%';
+    }
+  }
+  setTimeout(tickRecUI, 120);
+}
+window.addEventListener('beforeunload', e => { if (rec.active) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ================= result dialog (save / share) ================= */
+let resultFile = null;
+function stamp() {
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}.${z(d.getMinutes())}`;
+}
+function showResult(kind, blob, name) {
+  resultFile = { blob, name, kind };
+  $('#resTitle').textContent = kind === 'video' ? 'Recording ready' : 'PDF ready';
+  const body = $('#resBody'); body.innerHTML = '';
+  if (kind === 'video') {
+    const v = document.createElement('video'); v.controls = true; v.playsInline = true; v.src = URL.createObjectURL(blob); body.append(v);
+  } else {
+    body.innerHTML = `<p>${state.pages.length} page${state.pages.length > 1 ? 's' : ''}, ${(blob.size / 1e6).toFixed(1)} MB.</p>`;
+  }
+  $('#resName').textContent = `${name} · ${(blob.size / 1e6).toFixed(1)} MB`;
+  const file = new File([blob], name, { type: blob.type });
+  $('#resShare').style.display = navigator.canShare && navigator.canShare({ files: [file] }) ? '' : 'none';
+  $('#resultDlg').showModal();
+}
+function download(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+}
+$('#resSave').onclick = () => { if (resultFile) { download(resultFile.blob, resultFile.name); toast('Saved to your Downloads folder.'); } };
+$('#resShare').onclick = async () => {
+  if (!resultFile) return;
+  try { await navigator.share({ files: [new File([resultFile.blob], resultFile.name, { type: resultFile.blob.type })], title: resultFile.name }); }
+  catch (err) { if (err.name !== 'AbortError') alert('Sharing failed: ' + err.message); }
+};
+$('#resClose').onclick = () => { $('#resultDlg').querySelector('video')?.pause(); $('#resultDlg').close(); };
+
+/* ================= UI wiring ================= */
+function toast(msg, ms = 3200) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms);
+}
+function busy(msg) { $('#busy').classList.toggle('show', !!msg); if (msg) $('#busyMsg').textContent = msg; }
+function setTool(t) { prefs.tool = t; savePrefs(); if (t !== 'move') state.sel = null; overlayDirty = true; updateUI(); }
+function updateUI() {
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === prefs.tool));
+  document.querySelectorAll('.sw').forEach(b => b.classList.toggle('on', b.dataset.color === prefs.color));
+  document.querySelectorAll('[data-size]').forEach(b => b.classList.toggle('on', +b.dataset.size === prefs.size));
+  const pg = page(); if (!pg) return;
+  $('#undoBtn').disabled = !pg.undo.length; $('#redoBtn').disabled = !pg.redo.length;
+  $('#pageLbl').textContent = `${state.cur + 1} / ${state.pages.length}`;
+  $('#prevBtn').disabled = state.cur === 0; $('#nextBtn').disabled = state.cur === state.pages.length - 1;
+  $('#zoomBtn').textContent = Math.round(pg.view.s * 100) + '%';
+  document.body.classList.toggle('has-sel', !!(state.sel && prefs.tool === 'move'));
+  $('#mFinger').textContent = 'Finger drawing: ' + (prefs.fingerDraw ? 'on' : 'off');
+  $('#mLast').style.display = rec.last ? '' : 'none';
+  document.querySelectorAll('#bgPop [data-bg]').forEach(b => b.classList.toggle('on', b.dataset.bg === pg.bg));
+  if ($('#pagesPanel').classList.contains('open')) renderThumbs();
+}
+function layout() {
+  const wrap = $('#stageWrap'), aw = wrap.clientWidth - 12, ah = wrap.clientHeight - 12;
+  let w = aw, h = w * 9 / 16; if (h > ah) { h = ah; w = h * 16 / 9; }
+  $('#stage').style.width = w + 'px'; $('#stage').style.height = h + 'px';
+}
+function openPop(id, anchor) {
+  const p = $(id), open = p.classList.contains('open'); closePops(); if (open) return;
+  p.classList.add('open');
+  const r = anchor.getBoundingClientRect();
+  const up = r.top > innerHeight / 2;
+  p.style.top = (up ? r.top - p.offsetHeight - 6 : r.bottom + 6) + 'px';
+  p.style.left = Math.max(8, Math.min(innerWidth - p.offsetWidth - 8, r.left)) + 'px';
+}
+function closePops() { document.querySelectorAll('.pop.open').forEach(p => p.classList.remove('open')); }
+
+COLORS.forEach(c => {
+  const b = document.createElement('button'); b.className = 'sw'; b.dataset.color = c; b.style.background = c; b.title = c;
+  b.onclick = () => { prefs.color = c; savePrefs(); if (!['pen', 'hl'].includes(prefs.tool)) setTool('pen'); updateUI(); };
+  $('#colors').append(b);
+});
+document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { prefs.size = +b.dataset.size; savePrefs(); updateUI(); });
+$('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo;
+$('#prevBtn').onclick = () => goTo(state.cur - 1);
+$('#nextBtn').onclick = () => goTo(state.cur + 1);
+$('#addPageBtn').onclick = () => addPage();
+$('#zoomBtn').onclick = () => { page().view = { s: 1, tx: 0, ty: 0 }; changed(false); };
+$('#delSel').onclick = () => {
+  const pg = page(); if (!state.sel) return;
+  const snap = pg.items.slice(); pg.items = pg.items.filter(i => i !== state.sel); state.sel = null; commit(pg, snap);
+};
+$('#photoBtn').onclick = () => $('#photoInput').click();
+$('#pdfBtn').onclick = () => $('#pdfInput').click();
+$('#photoInput').onchange = e => { const f = [...e.target.files]; e.target.value = ''; if (f.length) importPhotos(f); };
+$('#pdfInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importPdf(f); };
+$('#savePdfBtn').onclick = exportPdf;
+$('#bgBtn').onclick = e => openPop('#bgPop', e.currentTarget);
+document.querySelectorAll('#bgPop [data-bg]').forEach(b => b.onclick = () => { page().bg = b.dataset.bg; changed(); });
+$('#bgAll').onclick = () => { const bg = page().bg; state.pages.forEach(p => p.bg = bg); changed(); closePops(); toast('Background applied to all pages.'); };
+$('#menuBtn').onclick = e => openPop('#menuPop', e.currentTarget);
+$('#mFinger').onclick = () => { prefs.fingerDraw = !prefs.fingerDraw; savePrefs(); updateUI(); };
+$('#mLast').onclick = () => { closePops(); if (rec.last) showResult('video', rec.last.blob, rec.last.name); };
+$('#mClear').onclick = () => { closePops(); const pg = page(); if (!pg.items.length) return; commit(pg, pg.items.slice()); pg.items = []; state.sel = null; changed(); };
+$('#mNew').onclick = async () => {
+  closePops();
+  if (!confirm('Delete all pages and start a new board? Save a PDF first if you want to keep this one.')) return;
+  state.pages = [newPage()]; state.cur = 0; state.sel = null;
+  await DB.clear('blobs').catch(() => {}); await saveNow(); changed();
+};
+$('#mHelp').onclick = () => { closePops(); $('#helpDlg').showModal(); };
+$('#helpClose').onclick = () => $('#helpDlg').close();
+$('#pagesBtn').onclick = () => { $('#pagesPanel').classList.toggle('open'); if ($('#pagesPanel').classList.contains('open')) renderThumbs(); };
+$('#closePages').onclick = () => $('#pagesPanel').classList.remove('open');
+$('#panelAdd').onclick = () => { addPage(); renderThumbs(); };
+$('#panelDup').onclick = () => { dupPage(); renderThumbs(); };
+$('#recBtn').onclick = startRecording;
+$('#pauseBtn').onclick = togglePause;
+$('#stopBtn').onclick = stopRecording;
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.pop, #bgBtn, #menuBtn')) closePops(); });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  else if (e.key === 'PageDown' || e.key === 'ArrowRight' && !e.target.closest('input')) goTo(state.cur + 1);
+  else if (e.key === 'PageUp' || e.key === 'ArrowLeft' && !e.target.closest('input')) goTo(state.cur - 1);
+});
+window.addEventListener('resize', layout);
+new ResizeObserver(layout).observe($('#stageWrap'));
+
+/* ================= start ================= */
+(async () => {
+  layout();
+  await loadBoard();
+  changed(false);
+  requestAnimationFrame(frame);
+  tickRecUI();
+  if (!localStorage.getItem('inkcast-helped')) { localStorage.setItem('inkcast-helped', '1'); $('#helpDlg').showModal(); }
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
