@@ -86,6 +86,11 @@ dialog .acts .btn.primary{background:var(--accent);color:#fff}
 dialog .acts .btn.danger{color:#b4232a}
 dialog p{margin:6px 0;color:#4a5866;line-height:1.45}
 @media (max-width:1100px){#toolbar,#pagebar{flex-wrap:wrap;overflow:visible;row-gap:4px}#toolbar .spacer{display:none}}
+#rulerCtl{display:none;align-items:center;gap:6px;font:600 14px system-ui,sans-serif;padding:0 6px;flex:none}
+body.ruler-on #rulerCtl{display:inline-flex}
+#rulerAng{width:84px;height:36px;border:0;border-radius:8px;padding:0 8px;font:600 17px system-ui,sans-serif;text-align:right;touch-action:manipulation;user-select:text;-webkit-user-select:text}
+#rulerUnitBtn{background:#34424f;height:36px;min-width:52px}
+#calDlg{width:min(860px,96vw);max-width:96vw}
 dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
 </style>
 </head>
@@ -150,6 +155,9 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
     <button class="btn" id="savePdfBtn" title="Save all pages as one PDF"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Save PDF</button>
   </div>
   <div class="spacer"></div>
+  <span id="rulerCtl" title="Ruler direction, counterclockwise from +x">Ruler
+    <input id="rulerAng" type="number" inputmode="decimal" step="any" enterkeyhint="done">°
+    <button class="btn" id="rulerUnitBtn" title="Switch ruler units">cm</button></span>
   <button class="btn" id="delSel" title="Delete the selected image"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Delete image</button>
   <button class="btn" id="zoomBtn" title="Reset zoom">100%</button>
 </div>
@@ -175,6 +183,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
 <div class="pop" id="menuPop">
   <button id="mLast">Show last recording</button>
   <button id="mFinger">Finger drawing: off</button>
+  <button id="mCal">Calibrate centimeters…</button>
   <button id="mSnap">Snap lines to grid: off</button>
   <button id="mMeasure">Show length &amp; angle while drawing: on</button>
   <hr>
@@ -200,6 +209,18 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
   </div>
 </dialog>
 
+<dialog id="calDlg">
+  <h2>Calibrate centimeters</h2>
+  <p>Hold a real ruler against the screen. Adjust until the blue bar is exactly <b>10 cm</b> long.</p>
+  <div style="padding:14px 0"><div id="calBar" style="height:26px;background:#3d8bfd;border-radius:3px;
+    background-image:repeating-linear-gradient(90deg,transparent 0 calc(10% - 2px),#fff calc(10% - 2px) 10%)"></div></div>
+  <input type="range" id="calRange" min="25" max="75" step="0.1" style="width:100%">
+  <div class="acts">
+    <button class="btn" id="calMinus">− shorter</button><button class="btn" id="calPlus">+ longer</button>
+    <span class="spacer"></span><button class="btn primary" id="calDone">Done</button>
+  </div>
+</dialog>
+
 <dialog id="helpDlg">
   <h2>How to use InkCast</h2>
   <p><b>Write</b> with the S Pen. Once the app sees the pen, your fingers only <b>pan and pinch-zoom</b>, so your palm won't leave marks. (Turn on <i>Finger drawing</i> in the ⋮ menu to draw with a finger.)</p>
@@ -207,7 +228,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
   <p><b>Photo</b> places pictures on the page. <b>PDF</b> turns each PDF page into a board page you can write on. Use the arrow tool to move an image, or drag its corner dot to resize it.</p>
   <p><b>Record</b> captures the board and your voice after a 3-second countdown. You can pause, change pages, zoom, and use the laser pointer while recording. Press the square to stop, then save or share the video.</p>
   <p><b>Lines &amp; vectors:</b> drag with the line or arrow tool. Lines snap to multiples of 15° when close, or to grid points if <i>Snap lines to grid</i> is on (⋮ menu). While drawing, a readout shows the length in <b>units</b> (1 unit = 1 small graph-paper square), the angle measured counterclockwise from +x, and the x and y components. The readout is only on your screen; it isn't recorded.</p>
-  <p><b>Ruler &amp; protractor:</b> move them with a finger. Rotate them with two fingers or by dragging the round knob. Drawing along the ruler's top edge with the pen makes a perfectly straight line. The ruler shows its own direction in degrees. Drag the red arm of the protractor to read an angle. Both appear in recordings, but not in saved PDFs.</p>
+  <p><b>Ruler &amp; protractor:</b> the ruler measures real centimeters on the screen (run <i>Calibrate centimeters</i> in the ⋮ menu once), or graph-paper units (tap <i>cm</i> in the bottom bar to switch). Type an angle in the <i>Ruler</i> box in the bottom bar to point the ruler in that direction. Move them with a finger. Rotate them with two fingers or by dragging the round knob. Drawing along the ruler's top edge with the pen makes a perfectly straight line. The ruler shows its own direction in degrees. Drag the red arm of the protractor to read an angle. Both appear in recordings, but not in saved PDFs.</p>
   <p><b>Save PDF</b> exports every page (with your writing) as one PDF. Your board is saved on the tablet automatically.</p>
   <div class="acts"><span class="spacer"></span><button class="btn primary" id="helpClose">Got it</button></div>
 </dialog>
@@ -233,7 +254,12 @@ const overlay = $('#overlay'), octx = overlay.getContext('2d');
 const cache = document.createElement('canvas'); cache.width = W; cache.height = H;
 const cctx = cache.getContext('2d');
 
-const prefs = Object.assign({ tool: 'pen', color: COLORS[1], size: 1, fingerDraw: false, penSeen: false, snapGrid: false, showMeasure: true,
+function guessPxPerCm() {   // screen pixels per real centimeter; refine with Calibrate
+  const a = Math.max(screen.width, screen.height), b = Math.min(screen.width, screen.height);
+  if (a === 1280 && b === 800) return 53.9;           // Galaxy Tab S9 (11")
+  return 96 / 2.54;
+}
+const prefs = Object.assign({ tool: 'pen', color: COLORS[1], size: 1, fingerDraw: false, penSeen: false, snapGrid: false, showMeasure: true, rulerUnit: 'cm', pxPerCm: guessPxPerCm(),
   ruler: { show: false, x: 360, y: 420, a: 0 }, prot: { show: false, x: 960, y: 540, a: 0, arm: 30 } },
   JSON.parse(localStorage.getItem('inkcast-prefs') || '{}'));
 const savePrefs = () => localStorage.setItem('inkcast-prefs', JSON.stringify(prefs));
@@ -310,30 +336,43 @@ function drawLine(ctx, L) {
   ctx.beginPath(); ctx.moveTo(L.x1, L.y1); ctx.lineTo(ex, ey); ctx.stroke();
 }
 const deg = r => ((r * 180 / Math.PI) % 360 + 360) % 360;
+// world pixels in one real centimeter on the screen at the current zoom
+function cmWorld() { const sw = $('#stage').getBoundingClientRect().width || W; return prefs.pxPerCm * W / sw / page().view.s; }
+const unitLen = () => prefs.rulerUnit === 'cm' ? cmWorld() : UNIT;
+const unitName = () => prefs.rulerUnit === 'cm' ? 'cm' : 'units';
+function rs() {   // ruler geometry in world pixels
+  if (prefs.rulerUnit === 'cm') {
+    const g = 1 / page().view.s, U = cmWorld(), n = 15;   // stays the same physical size when you zoom
+    return { U, n, sub: 10, len: U * n, m: 30 * g, w: 110 * g, g };
+  }
+  return { U: UNIT, n: 40, sub: 2, len: UNIT * 40, m: 30, w: 110, g: 1 };
+}
 function measure(x1, y1, x2, y2) {
-  const dx = (x2 - x1) / UNIT, dy = -(y2 - y1) / UNIT;
+  const U = unitLen(), dx = (x2 - x1) / U, dy = -(y2 - y1) / U;
   return { m: Math.hypot(dx, dy), a: deg(Math.atan2(dy, dx)), dx, dy };
 }
 function drawRuler(ctx) {
-  const R = prefs.ruler, L = RUL.len, M = RUL.m, Wd = RUL.w;
+  const R = prefs.ruler, S = rs(), L = S.len, M = S.m, Wd = S.w, g = S.g;
   ctx.save(); ctx.translate(R.x, R.y); ctx.rotate(R.a);
   ctx.fillStyle = 'rgba(252,232,140,0.80)'; ctx.strokeStyle = 'rgba(110,90,20,0.95)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.rect(-M, 0, L + 2 * M, Wd); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = 1.5 * g; ctx.beginPath(); ctx.rect(-M, 0, L + 2 * M, Wd); ctx.fill(); ctx.stroke();
   ctx.strokeStyle = '#3b3210'; ctx.fillStyle = '#3b3210'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.beginPath();
-  for (let i = 0; i <= L / (UNIT / 2); i++) {
-    const x = i * UNIT / 2, h = i % 10 === 0 ? 34 : i % 2 === 0 ? 22 : 11;
-    ctx.moveTo(x, 0); ctx.lineTo(x, h);
+  for (let i = 0; i <= S.n * S.sub; i++) {
+    const x = i * S.U / S.sub;
+    const h = S.sub === 10 ? (i % 10 === 0 ? 34 : i % 5 === 0 ? 22 : 12) : (i % 10 === 0 ? 34 : i % 2 === 0 ? 22 : 11);
+    ctx.moveTo(x, 0); ctx.lineTo(x, h * g);
   }
-  ctx.lineWidth = 1.4; ctx.stroke();
-  ctx.font = '600 14px system-ui,sans-serif';
-  for (let u = 0; u <= L / UNIT; u++) ctx.fillText(String(u), u * UNIT, 48);
-  ctx.font = '700 20px system-ui,sans-serif';
-  ctx.fillText(deg(-R.a).toFixed(1) + '°', L / 2, 84);
-  ctx.font = '13px system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.fillText('units', 4, 84);
+  ctx.lineWidth = (S.sub === 10 ? 1.1 : 1.4) * g; ctx.stroke();
+  ctx.font = `600 ${15 * g}px system-ui,sans-serif`;
+  for (let u = 0; u <= S.n; u++) ctx.fillText(String(u), u * S.U, 48 * g);
+  ctx.font = `700 ${20 * g}px system-ui,sans-serif`;
+  ctx.fillText(deg(-R.a).toFixed(1) + '°', L / 2, 84 * g);
+  ctx.font = `${14 * g}px system-ui,sans-serif`; ctx.textAlign = 'left'; ctx.fillText(unitName(), 4 * g, 84 * g);
   // rotation knob past the right end
-  ctx.fillStyle = '#6b5a14'; ctx.beginPath(); ctx.arc(L + M + 30, Wd / 2, 22, 0, 7); ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(L + M + 30, Wd / 2, 10, -2.2, 2.6); ctx.stroke();
+  const kx = L + M + 30 * g, ky = Wd / 2;
+  ctx.fillStyle = '#6b5a14'; ctx.beginPath(); ctx.arc(kx, ky, 22 * g, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * g; ctx.beginPath(); ctx.arc(kx, ky, 10 * g, -2.2, 2.6); ctx.stroke();
   ctx.restore();
 }
 function drawProt(ctx) {
@@ -422,7 +461,7 @@ function drawOverlay() {
   if (active && active.line && prefs.showMeasure) {
     const L = active.line, m = measure(L.x1, L.y1, L.x2, L.y2);
     if (m.m > 0.05) {
-      const txt = `${m.m.toFixed(2)} units   ${m.a.toFixed(1)}°` + (L.arrow ? `   (x ${m.dx.toFixed(2)}, y ${m.dy.toFixed(2)})` : '');
+      const txt = `${m.m.toFixed(2)} ${unitName()}   ${m.a.toFixed(1)}°` + (L.arrow ? `   (x ${m.dx.toFixed(2)}, y ${m.dy.toFixed(2)})` : '');
       octx.font = '600 26px system-ui,sans-serif';
       const tw = octx.measureText(txt).width + 24;
       let x = L.x2 * v.s + v.tx + 24, y = L.y2 * v.s + v.ty - 56;
@@ -521,7 +560,7 @@ function rulerLocal(w) {
 }
 function nearRulerEdge(w) {
   if (!prefs.ruler.show) return false;
-  const q = rulerLocal(w); return q.s >= -RUL.m && q.s <= RUL.len + RUL.m && q.t >= -24 && q.t <= 14;
+  const q = rulerLocal(w), S = rs(); return q.s >= -S.m && q.s <= S.len + S.m && q.t >= -24 * S.g && q.t <= 14 * S.g;
 }
 function onRulerEdge(w) { const R = prefs.ruler, q = rulerLocal(w); return { x: R.x + Math.cos(R.a) * q.s, y: R.y + Math.sin(R.a) * q.s }; }
 function instAt(w, allowBody) {
@@ -534,13 +573,15 @@ function instAt(w, allowBody) {
   }
   if (prefs.ruler.show) {
     const q = rulerLocal(w);
-    if (Math.hypot(q.s - (RUL.len + RUL.m + 30), q.t - RUL.w / 2) < kr) return { inst: 'ruler', mode: 'rotate' };
+    const S = rs();
+    if (Math.hypot(q.s - (S.len + S.m + 30 * S.g), q.t - S.w / 2) < kr) return { inst: 'ruler', mode: 'rotate' };
   }
   if (!allowBody) return null;
   if (P.show && Math.hypot(w.x - P.x, w.y - P.y) <= PR) return { inst: 'prot', mode: 'move' };
   if (prefs.ruler.show) {
     const q = rulerLocal(w);
-    if (q.s >= -RUL.m && q.s <= RUL.len + RUL.m && q.t >= 0 && q.t <= RUL.w) return { inst: 'ruler', mode: 'move' };
+    const S = rs();
+    if (q.s >= -S.m && q.s <= S.len + S.m && q.t >= 0 && q.t <= S.w) return { inst: 'ruler', mode: 'move' };
   }
   return null;
 }
@@ -568,7 +609,7 @@ function moveInst(w) {
     obj.x = o.x + w.x - a.w0.x; obj.y = o.y + w.y - a.w0.y;
   } else if (a.mode === 'rotate') {
     const ang = Math.atan2(w.y - o.y, w.x - o.x);
-    obj.a = a.inst === 'ruler' ? snapAng(ang - Math.atan2(RUL.w / 2, RUL.len + RUL.m + 30), 1.2) : snapAng(ang - Math.PI, 1.2);
+    obj.a = a.inst === 'ruler' ? snapAng(ang - (S => Math.atan2(S.w / 2, S.len + S.m + 30 * S.g))(rs()), 1.2) : snapAng(ang - Math.PI, 1.2);
   } else if (a.mode === 'arm') {
     let d = deg(o.a - Math.atan2(w.y - o.y, w.x - o.x));
     const r = Math.round(d); if (Math.abs(d - r) < 0.25) d = r;
@@ -582,7 +623,7 @@ function toggleInst(name) {
   if (obj.show) {   // put it in the middle of what you're looking at
     const cx = (W / 2 - v.tx) / v.s, cy = (H / 2 - v.ty) / v.s;
     obj.a = 0;
-    if (name === 'ruler') { obj.x = cx - RUL.len / 2 / Math.max(1, v.s); obj.y = cy - RUL.w / 2; }
+    if (name === 'ruler') { const S = rs(); obj.x = cx - S.len / 2; obj.y = cy - S.w / 2; }
     else { obj.x = cx; obj.y = cy; }
   }
   savePrefs(); needsDraw = true; updateUI();
@@ -625,7 +666,7 @@ overlay.addEventListener('pointermove', e => {
 });
 function endPointer(e) {
   if (active && active.inst && (active.id === e.pointerId || (active.two && touches.has(e.pointerId)))) {
-    touches.delete(e.pointerId); active = null; savePrefs(); needsDraw = true; return;
+    touches.delete(e.pointerId); active = null; savePrefs(); needsDraw = true; syncRulerBox(); return;
   }
   if (touches.has(e.pointerId)) {
     touches.delete(e.pointerId);
@@ -688,7 +729,7 @@ function startAction(e, c) {
 const snapGrid = w => ({ x: Math.round(w.x / UNIT) * UNIT, y: Math.round(w.y / UNIT) * UNIT });
 function moveAction(e, c) {
   const pg = page(), w = toWorld(c), a = active;
-  if (a.inst) { moveInst(w); return; }
+  if (a.inst) { moveInst(w); if (a.inst === 'ruler' && a.mode !== 'move') syncRulerBox(); return; }
   a.lastC = c;
   if (a.line) {
     const L = a.line; let p;
@@ -1137,7 +1178,8 @@ function updateUI() {
   $('#mFinger').textContent = 'Finger drawing: ' + (prefs.fingerDraw ? 'on' : 'off');
   $('#mSnap').textContent = 'Snap lines to grid: ' + (prefs.snapGrid ? 'on' : 'off');
   $('#mMeasure').textContent = 'Show length & angle while drawing: ' + (prefs.showMeasure ? 'on' : 'off');
-  $('#rulerBtn').classList.toggle('on', prefs.ruler.show); $('#protBtn').classList.toggle('on', prefs.prot.show);
+  $('#rulerBtn').classList.toggle('on', prefs.ruler.show);
+  document.body.classList.toggle('ruler-on', prefs.ruler.show); syncRulerBox(); $('#protBtn').classList.toggle('on', prefs.prot.show);
   $('#mLast').style.display = rec.last ? '' : 'none';
   document.querySelectorAll('#bgPop [data-bg]').forEach(b => b.classList.toggle('on', b.dataset.bg === pg.bg));
   if ($('#pagesPanel').classList.contains('open')) renderThumbs();
@@ -1145,7 +1187,7 @@ function updateUI() {
 function layout() {
   const wrap = $('#stageWrap'), aw = wrap.clientWidth - 12, ah = wrap.clientHeight - 12;
   let w = aw, h = w * 9 / 16; if (h > ah) { h = ah; w = h * 16 / 9; }
-  $('#stage').style.width = w + 'px'; $('#stage').style.height = h + 'px';
+  $('#stage').style.width = w + 'px'; $('#stage').style.height = h + 'px'; needsDraw = true;
 }
 function openPop(id, anchor) {
   const p = $(id), open = p.classList.contains('open'); closePops(); if (open) return;
@@ -1186,6 +1228,29 @@ $('#mFinger').onclick = () => { prefs.fingerDraw = !prefs.fingerDraw; savePrefs(
 $('#mSnap').onclick = () => { prefs.snapGrid = !prefs.snapGrid; savePrefs(); updateUI(); };
 $('#mMeasure').onclick = () => { prefs.showMeasure = !prefs.showMeasure; savePrefs(); updateUI(); };
 $('#rulerBtn').onclick = () => toggleInst('ruler');
+function setRulerAngle() {
+  const v = parseFloat($('#rulerAng').value);
+  if (isFinite(v)) { prefs.ruler.a = -v * Math.PI / 180; savePrefs(); needsDraw = true; }
+  syncRulerBox(true);
+}
+function syncRulerBox(force) {
+  const box = $('#rulerAng');
+  if (force || document.activeElement !== box) box.value = +deg(-prefs.ruler.a).toFixed(1) % 360;
+  $('#rulerUnitBtn').textContent = prefs.rulerUnit === 'cm' ? 'cm' : 'grid';
+}
+$('#rulerAng').addEventListener('change', setRulerAngle);
+$('#rulerAng').addEventListener('keydown', e => { if (e.key === 'Enter') { setRulerAngle(); e.target.blur(); } });
+$('#rulerAng').addEventListener('focus', e => e.target.select());
+$('#rulerUnitBtn').onclick = () => {
+  prefs.rulerUnit = prefs.rulerUnit === 'cm' ? 'grid' : 'cm'; savePrefs(); needsDraw = true; updateUI();
+  toast(prefs.rulerUnit === 'cm' ? 'Ruler in centimeters' : 'Ruler in graph-paper squares');
+};
+function calShow() { $('#calBar').style.width = (prefs.pxPerCm * 10) + 'px'; $('#calRange').value = prefs.pxPerCm; needsDraw = true; }
+$('#mCal').onclick = () => { closePops(); calShow(); $('#calDlg').showModal(); };
+$('#calRange').oninput = e => { prefs.pxPerCm = +e.target.value; calShow(); };
+$('#calMinus').onclick = () => { prefs.pxPerCm = Math.max(25, prefs.pxPerCm - 0.1); calShow(); };
+$('#calPlus').onclick = () => { prefs.pxPerCm = Math.min(75, prefs.pxPerCm + 0.1); calShow(); };
+$('#calDone').onclick = () => { savePrefs(); $('#calDlg').close(); toast('Centimeters calibrated.'); };
 $('#protBtn').onclick = () => toggleInst('prot');
 $('#mLast').onclick = () => { closePops(); if (rec.last) showResult('video', rec.last.blob, rec.last.name); };
 $('#mClear').onclick = () => { closePops(); const pg = page(); if (!pg.items.length) return; commit(pg, pg.items.slice()); pg.items = []; state.sel = null; changed(); };
