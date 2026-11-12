@@ -63,7 +63,7 @@ body.has-sel #delSel{display:inline-flex}
 #thumbs{flex:1;overflow-y:auto;padding:10px;touch-action:pan-y}
 .th{background:#fff;border-radius:10px;padding:6px;margin-bottom:10px;border:3px solid transparent;box-shadow:0 1px 4px #0002}
 .th.cur{border-color:var(--accent)}
-.th canvas{width:100%;display:block;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #0001}
+.th canvas{width:72%;margin:0 auto;display:block;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #0001}
 .th .row{display:flex;align-items:center;gap:4px;margin-top:4px;font:600 14px system-ui,sans-serif;color:#33414f}
 .th .row .btn{height:34px;min-width:34px;color:#33414f;padding:0 4px}
 .th .row .btn svg{width:20px;height:20px}
@@ -160,7 +160,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
     <input id="rulerAng" type="number" inputmode="decimal" step="any" enterkeyhint="done">°
     <button class="btn" id="rulerUnitBtn" title="Switch ruler units">cm</button></span>
   <button class="btn" id="delSel" title="Delete the selected image"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Delete image</button>
-  <button class="btn" id="zoomBtn" title="Reset zoom">100%</button>
+  <button class="btn" id="zoomBtn" title="Switch between seeing the whole page and fitting its width">Whole page</button>
 </div>
 
 <aside id="pagesPanel">
@@ -225,6 +225,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
 <dialog id="helpDlg">
   <h2>How to use InkCast</h2>
   <p><b>Write</b> with the S Pen. Once the app sees the pen, your fingers only <b>pan and pinch-zoom</b>, so your palm won't leave marks. (Turn on <i>Finger drawing</i> in the ⋮ menu to draw with a finger.)</p>
+  <p><b>Pages</b> are letter size (8.5 × 11). Slide a finger up and down to see the rest of the page, or pinch to zoom. <i>Whole page</i> in the bottom bar zooms out to show the full sheet; <i>Fit width</i> zooms back in.</p>
   <p><b>Erase</b> with the eraser tool, or hold the S Pen side button while you write. The eraser removes whole strokes, never images.</p>
   <p><b>Photo</b> places pictures on the page. <b>PDF</b> turns each PDF page into a board page you can write on. Use the arrow tool to move an image, or drag its corner dot to resize it.</p>
   <p><b>Record</b> captures the board and your voice after a 3-second countdown. You can pause, change pages, zoom, and use the laser pointer while recording. Press the square to stop, then save or share the video.</p>
@@ -240,7 +241,9 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
 <script>
 'use strict';
 /* ================= constants & state ================= */
-const W = 1920, H = 1080;                 // board (and video) resolution
+const W = 1920, H = 1080;                 // screen view (and video) resolution
+const PW = 1920, PH = Math.round(1920 * 11 / 8.5);   // a page: US Letter, 8.5 × 11 in, portrait
+const SMIN = H / PH;                      // zoomed all the way out = whole page visible
 const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/';
 const SIZES = { pen: [3, 6, 12], hl: [18, 32, 52], eraser: [14, 32, 64], line: [3, 5, 9], vector: [3, 5, 9] };
 const UNIT = 30;                         // 1 measurement unit = 1 small graph-paper square
@@ -280,21 +283,21 @@ function changed(save = true) { cacheDirty = true; overlayDirty = true; if (save
 /* ================= drawing ================= */
 function drawBg(ctx, bg) {
   ctx.fillStyle = bg === 'dark' ? '#1f2e2b' : '#ffffff';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, PW, PH);
   ctx.beginPath();
   if (bg === 'grid') {
     ctx.lineWidth = 1; ctx.strokeStyle = '#dde7f3';
-    for (let x = 30; x < W; x += 30) if (x % 150) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-    for (let y = 30; y < H; y += 30) if (y % 150) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    for (let x = 30; x < PW; x += 30) if (x % 150) { ctx.moveTo(x, 0); ctx.lineTo(x, PH); }
+    for (let y = 30; y < PH; y += 30) if (y % 150) { ctx.moveTo(0, y); ctx.lineTo(PW, y); }
     ctx.stroke(); ctx.beginPath(); ctx.lineWidth = 1.6; ctx.strokeStyle = '#b6cae3';
-    for (let x = 150; x < W; x += 150) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-    for (let y = 150; y < H; y += 150) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    for (let x = 150; x < PW; x += 150) { ctx.moveTo(x, 0); ctx.lineTo(x, PH); }
+    for (let y = 150; y < PH; y += 150) { ctx.moveTo(0, y); ctx.lineTo(PW, y); }
     ctx.stroke();
   } else if (bg === 'lined') {
     ctx.lineWidth = 1.6; ctx.strokeStyle = '#c3d7ee';
-    for (let y = 120; y < H; y += 60) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    for (let y = 120; y < PH; y += 60) { ctx.moveTo(0, y); ctx.lineTo(PW, y); }
     ctx.stroke(); ctx.beginPath(); ctx.strokeStyle = '#f0a8a8';
-    ctx.moveTo(160, 0); ctx.lineTo(160, H); ctx.stroke();
+    ctx.moveTo(160, 0); ctx.lineTo(160, PH); ctx.stroke();
   }
 }
 const widthAt = (st, p) => st.w * (0.35 + 1.1 * p);
@@ -420,7 +423,7 @@ function drawInstruments(ctx, view) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 function renderPage(ctx, pg, view, cw = W, ch = H) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cw, ch);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#8f99a3'; ctx.fillRect(0, 0, cw, ch);
   ctx.setTransform(view.s, 0, 0, view.s, view.tx, view.ty);
   drawBg(ctx, pg.bg);
   for (const it of pg.items) {
@@ -471,6 +474,12 @@ function drawOverlay() {
       octx.fillStyle = '#fff'; octx.textBaseline = 'middle'; octx.fillText(txt, x + 12, y + 21);
     }
   }
+  {
+    const ph = PH * v.s, pw = PW * v.s;
+    octx.fillStyle = 'rgba(40,50,60,0.35)';
+    if (ph > H + 1) { const h = Math.max(60, H * H / ph); octx.beginPath(); octx.roundRect(W - 16, (-v.ty / (ph - H)) * (H - h), 9, h, 5); octx.fill(); }
+    if (pw > W + 1) { const w = Math.max(60, W * W / pw); octx.beginPath(); octx.roundRect((-v.tx / (pw - W)) * (W - w), H - 16, w, 9, 5); octx.fill(); }
+  }
   const ep = active && active.tool === 'eraser' ? active.lastC : (hover && prefs.tool === 'eraser' ? hover : null);
   if (ep) {
     octx.lineWidth = 2; octx.strokeStyle = '#555'; octx.fillStyle = '#ffffff55';
@@ -508,9 +517,10 @@ function toCanvas(e) {
 }
 function toWorld(c) { const v = page().view; return { x: (c.x - v.tx) / v.s, y: (c.y - v.ty) / v.s }; }
 function clampView(v) {
-  v.s = Math.min(6, Math.max(1, v.s));
-  v.tx = Math.min(0, Math.max(W - W * v.s, v.tx));
-  v.ty = Math.min(0, Math.max(H - H * v.s, v.ty));
+  v.s = Math.min(6, Math.max(SMIN, v.s));
+  const pw = PW * v.s, ph = PH * v.s;
+  v.tx = pw <= W ? (W - pw) / 2 : Math.min(0, Math.max(W - pw, v.tx));
+  v.ty = ph <= H ? (H - ph) / 2 : Math.min(0, Math.max(H - ph, v.ty));
   return v;
 }
 function bbox(st) {
@@ -682,7 +692,8 @@ overlay.addEventListener('contextmenu', e => e.preventDefault());
 overlay.addEventListener('wheel', e => {
   e.preventDefault();
   const v = page().view, c = toCanvas(e), wx = (c.x - v.tx) / v.s, wy = (c.y - v.ty) / v.s;
-  v.s *= Math.exp(-e.deltaY * 0.0015); clampView(v);
+  if (!e.ctrlKey) { v.tx -= e.deltaX * 1.5; v.ty -= e.deltaY * 1.5; clampView(v); changed(false); return; }
+  v.s *= Math.exp(-e.deltaY * 0.004); clampView(v);
   v.tx = c.x - wx * v.s; v.ty = c.y - wy * v.s; clampView(v); changed(false);
 }, { passive: false });
 
@@ -808,7 +819,7 @@ function moveGesture() {
   const { c, d } = centroid(), g = gesture, v = page().view;
   const s = (g.d0 > 0 && d > 0) ? g.v0.s * d / g.d0 : g.v0.s;
   const wx = (g.c0.x - g.v0.tx) / g.v0.s, wy = (g.c0.y - g.v0.ty) / g.v0.s;
-  v.s = Math.min(6, Math.max(1, s)); v.tx = c.x - wx * v.s; v.ty = c.y - wy * v.s;
+  v.s = Math.min(6, Math.max(SMIN, s)); v.tx = c.x - wx * v.s; v.ty = c.y - wy * v.s;
   clampView(v); changed(false);
 }
 
@@ -841,8 +852,8 @@ function renderThumbs() {
   const box = $('#thumbs'); box.innerHTML = '';
   state.pages.forEach((pg, i) => {
     const d = document.createElement('div'); d.className = 'th' + (i === state.cur ? ' cur' : '');
-    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180;
-    renderPage(cv.getContext('2d'), pg, { s: 320 / W, tx: 0, ty: 0 }, 320, 180);
+    const cv = document.createElement('canvas'); cv.width = 200; cv.height = Math.round(200 * PH / PW);
+    renderPage(cv.getContext('2d'), pg, { s: 200 / PW, tx: 0, ty: 0 }, cv.width, cv.height);
     cv.onclick = () => { goTo(i); renderThumbs(); };
     const row = document.createElement('div'); row.className = 'row';
     row.innerHTML = `<span>${i + 1}</span>
@@ -924,8 +935,14 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) saveN
 /* ================= import: photos & PDF ================= */
 async function storeImage(blob) { const id = uid(); await DB.put('blobs', id, blob); return id; }
 function fitBox(iw, ih, frac) {
-  const s = Math.min(W * frac / iw, H * frac / ih); const w = iw * s, h = ih * s;
-  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+  const v = page().view, x0 = Math.max(0, -v.tx / v.s), y0 = Math.max(0, -v.ty / v.s);
+  const vw = Math.min(PW, W / v.s), vh = Math.min(PH, H / v.s);
+  const s = Math.min(vw * frac / iw, vh * frac / ih), w = iw * s, h = ih * s;
+  return { x: x0 + (vw - w) / 2, y: y0 + (vh - h) / 2, w, h };
+}
+function fitPage(iw, ih) {
+  const s = Math.min(PW / iw, PH / ih), w = iw * s, h = ih * s;
+  return { x: (PW - w) / 2, y: 0, w, h };
 }
 async function prepPhoto(file) {
   // downscale very large photos (respects camera orientation)
@@ -973,7 +990,7 @@ async function importPdf(file) {
     for (let n = 1; n <= doc.numPages; n++) {
       busy(`Importing page ${n} of ${doc.numPages}…`);
       const pdfPage = await doc.getPage(n), vp1 = pdfPage.getViewport({ scale: 1 });
-      const scale = Math.min(W / vp1.width, H / vp1.height) * 1.5;
+      const scale = Math.min(PW / vp1.width, PH / vp1.height);
       const vp = pdfPage.getViewport({ scale });
       const cv = document.createElement('canvas'); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
       const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
@@ -983,7 +1000,7 @@ async function importPdf(file) {
       let pg;
       if (n === 1 && reuse) pg = page();
       else { pg = newPage('white'); insertAt++; state.pages.splice(insertAt, 0, pg); }
-      pg.items.push({ type: 'image', blobId: id, img, ...fitBox(img.naturalWidth, img.naturalHeight, 1) });
+      pg.items.push({ type: 'image', blobId: id, img, ...fitPage(img.naturalWidth, img.naturalHeight) });
     }
     goTo(reuse ? state.cur : state.cur + 1);
     toast(`Imported ${doc.numPages} page${doc.numPages > 1 ? 's' : ''}.`);
@@ -1018,15 +1035,15 @@ async function exportPdf() {
   if (active) cancelAction();
   busy('Making PDF…');
   try {
-    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d');
+    const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH; const ctx = cv.getContext('2d');
     const jpegs = [];
     for (let i = 0; i < state.pages.length; i++) {
       busy(`Making PDF… page ${i + 1} of ${state.pages.length}`);
-      renderPage(ctx, state.pages[i], { s: 1, tx: 0, ty: 0 });
+      renderPage(ctx, state.pages[i], { s: 1, tx: 0, ty: 0 }, PW, PH);
       const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
       jpegs.push(new Uint8Array(await b.arrayBuffer()));
     }
-    const pdf = buildPdf(jpegs, W, H, 960, 540);   // 13.33 × 7.5 in, same as a widescreen slide
+    const pdf = buildPdf(jpegs, PW, PH, 612, 792);   // US Letter, 8.5 × 11 in
     showResult('pdf', pdf, `InkCast ${stamp()}.pdf`);
   } catch (err) { console.error(err); alert('Could not make the PDF: ' + err.message); }
   busy(false);
@@ -1179,7 +1196,7 @@ function updateUI() {
   $('#undoBtn').disabled = !pg.undo.length; $('#redoBtn').disabled = !pg.redo.length;
   $('#pageLbl').textContent = `${state.cur + 1} / ${state.pages.length}`;
   $('#prevBtn').disabled = state.cur === 0; $('#nextBtn').disabled = state.cur === state.pages.length - 1;
-  $('#zoomBtn').textContent = Math.round(pg.view.s * 100) + '%';
+  $('#zoomBtn').textContent = Math.abs(pg.view.s - 1) < 0.01 ? 'Whole page' : 'Fit width';
   document.body.classList.toggle('has-sel', !!(state.sel && prefs.tool === 'move'));
   $('#mFinger').textContent = 'Finger drawing: ' + (prefs.fingerDraw ? 'on' : 'off');
   $('#mSnap').textContent = 'Snap lines to grid: ' + (prefs.snapGrid ? 'on' : 'off');
@@ -1216,7 +1233,11 @@ $('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo;
 $('#prevBtn').onclick = () => goTo(state.cur - 1);
 $('#nextBtn').onclick = () => goTo(state.cur + 1);
 $('#addPageBtn').onclick = () => addPage();
-$('#zoomBtn').onclick = () => { page().view = { s: 1, tx: 0, ty: 0 }; changed(false); };
+$('#zoomBtn').onclick = () => {
+  const pg = page(), v = pg.view, cy = (H / 2 - v.ty) / v.s;
+  pg.view = Math.abs(v.s - 1) < 0.01 ? clampView({ s: SMIN, tx: 0, ty: 0 }) : clampView({ s: 1, tx: 0, ty: H / 2 - cy });
+  changed(false);
+};
 $('#delSel').onclick = () => {
   const pg = page(); if (!state.sel) return;
   const snap = pg.items.slice(); pg.items = pg.items.filter(i => i !== state.sel); state.sel = null; commit(pg, snap);
