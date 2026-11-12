@@ -1,5 +1,5 @@
 // InkCast service worker: works offline after the first visit.
-const CACHE = 'inkcast-v6';
+const CACHE = 'inkcast-v7';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {

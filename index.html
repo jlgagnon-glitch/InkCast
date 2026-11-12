@@ -108,7 +108,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
     <button class="btn" data-tool="vector" title="Vector (arrow)"><svg viewBox="0 0 24 24"><path d="M5 19L18 6"/><path d="M10 5.5h8.5V14"/></svg></button>
     <button class="btn" data-tool="eraser" title="Eraser (or hold the S Pen button)"><svg viewBox="0 0 24 24"><path d="M8 20h12"/><path d="M4.5 15.5l9.5-9.5 5 5-8.5 8.5H8z"/><path d="M9 11l5 5"/></svg></button>
     <button class="btn" data-tool="laser" title="Laser pointer"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
-    <button class="btn" data-tool="move" title="Select / move images"><svg viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L16 19l-2.6 1.3-3.5-6.8L6 17z"/></svg></button>
+    <button class="btn" data-tool="move" title="Select and move: drag anything with a finger or the pen"><svg viewBox="0 0 24 24"><path d="M6 3l12 8-5.5 1.2L16 19l-2.6 1.3-3.5-6.8L6 17z"/></svg></button>
   </div>
   <div class="grp">
     <button class="btn" id="rulerBtn" title="Ruler"><svg viewBox="0 0 24 24"><path d="M2.5 16L16 2.5 21.5 8 8 21.5z"/><path d="M6.5 12l2.2 2.2M9.5 9l1.6 1.6M12.5 6l2.2 2.2"/></svg></button>
@@ -159,7 +159,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
   <span id="rulerCtl" title="Ruler direction, counterclockwise from +x">Ruler
     <input id="rulerAng" type="number" inputmode="decimal" step="any" enterkeyhint="done">°
     <button class="btn" id="rulerUnitBtn" title="Switch ruler units">cm</button></span>
-  <button class="btn" id="delSel" title="Delete the selected image"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Delete image</button>
+  <button class="btn" id="delSel" title="Delete the selected item"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Delete</button>
   <button class="btn" id="zoomBtn" title="Switch between seeing the whole page and fitting its width">Whole page</button>
 </div>
 
@@ -227,7 +227,7 @@ dialog .fname{font:13px ui-monospace,monospace;color:#5c6b7a}
   <p><b>Write</b> with the S Pen. Once the app sees the pen, your fingers only <b>pan and pinch-zoom</b>, so your palm won't leave marks. (Turn on <i>Finger drawing</i> in the ⋮ menu to draw with a finger.)</p>
   <p><b>Pages</b> are letter size (8.5 × 11). Slide a finger up and down to see the rest of the page, or pinch to zoom. <i>Whole page</i> in the bottom bar zooms out to show the full sheet; <i>Fit width</i> zooms back in.</p>
   <p><b>Erase</b> with the eraser tool, or hold the S Pen side button while you write. The eraser removes whole strokes, never images.</p>
-  <p><b>Photo</b> places pictures on the page. <b>PDF</b> turns each PDF page into a board page you can write on. Use the arrow tool to move an image, or drag its corner dot to resize it.</p>
+  <p><b>Photo</b> places pictures on the page. <b>PDF</b> turns each PDF page into a board page you can write on. With the <b>arrow tool</b>, drag anything (a photo, line, vector, or handwriting) with a finger or the pen. Drag a line's or vector's blue end dots to change it. Drag a photo's corner dot to resize it. <i>Delete</i> in the bottom bar removes the selected item.</p>
   <p><b>Record</b> captures the board and your voice after a 3-second countdown. You can pause, change pages, zoom, and use the laser pointer while recording. Press the square to stop, then save or share the video.</p>
   <p><b>Lines &amp; vectors:</b> drag with the line or arrow tool. Lines snap to multiples of 15° when close, or to grid points if <i>Snap lines to grid</i> is on (⋮ menu). While drawing, a readout shows the length in <b>units</b> (1 unit = 1 small graph-paper square), the angle measured counterclockwise from +x, and the x and y components. The readout is only on your screen; it isn't recorded.</p>
   <p><b>Ruler &amp; protractor:</b> the ruler measures real centimeters on the screen (run <i>Calibrate centimeters</i> in the ⋮ menu once), or graph-paper units (tap <i>cm</i> in the bottom bar to switch). Type an angle in the <i>Ruler</i> box in the bottom bar to point the ruler in that direction. Move them with a finger. Rotate them with two fingers or by dragging the round knob. Drawing along the ruler's top edge with the pen makes a perfectly straight line. The ruler shows its own direction in degrees. Drag the red arm of the protractor to read an angle. Both appear in recordings, but not in saved PDFs.</p>
@@ -457,13 +457,24 @@ function drawOverlay() {
   const v = page().view;
   const sel = state.sel;
   if (sel && prefs.tool === 'move' && page().items.includes(sel)) {
-    const x = sel.x * v.s + v.tx, y = sel.y * v.s + v.ty, w = sel.w * v.s, h = sel.h * v.s;
-    octx.lineWidth = 3; octx.setLineDash([12, 8]); octx.strokeStyle = '#3d8bfd'; octx.strokeRect(x, y, w, h);
-    octx.setLineDash([]); octx.fillStyle = '#3d8bfd'; octx.strokeStyle = '#fff';
-    octx.beginPath(); octx.arc(x + w, y + h, 18, 0, 7); octx.fill(); octx.stroke();
+    octx.lineWidth = 3; octx.strokeStyle = '#3d8bfd';
+    const dot = (x, y, r = 18) => { octx.setLineDash([]); octx.fillStyle = '#3d8bfd'; octx.strokeStyle = '#fff'; octx.lineWidth = 3;
+      octx.beginPath(); octx.arc(x, y, r, 0, 7); octx.fill(); octx.stroke(); };
+    if (sel.type === 'line') {
+      octx.globalAlpha = 0.35; octx.lineWidth = sel.w * v.s + 14; octx.lineCap = 'round';
+      octx.beginPath(); octx.moveTo(sel.x1 * v.s + v.tx, sel.y1 * v.s + v.ty); octx.lineTo(sel.x2 * v.s + v.tx, sel.y2 * v.s + v.ty); octx.stroke();
+      octx.globalAlpha = 1;
+      octx.globalAlpha = 0.75; dot(sel.x1 * v.s + v.tx, sel.y1 * v.s + v.ty, 11); dot(sel.x2 * v.s + v.tx, sel.y2 * v.s + v.ty, 11); octx.globalAlpha = 1;
+    } else {
+      const b = sel.type === 'image' ? [sel.x, sel.y, sel.x + sel.w, sel.y + sel.h] : (sel.bb || (sel.bb = bbox(sel)));
+      const x = b[0] * v.s + v.tx, y = b[1] * v.s + v.ty, w = (b[2] - b[0]) * v.s, h = (b[3] - b[1]) * v.s;
+      octx.setLineDash([12, 8]); octx.strokeRect(x, y, w, h); octx.setLineDash([]);
+      if (sel.type === 'image') dot(x + w, y + h);
+    }
   }
-  if (active && active.line && prefs.showMeasure) {
-    const L = active.line, m = measure(L.x1, L.y1, L.x2, L.y2);
+  const measured = active && (active.line || (active.tool === 'move' && state.sel && state.sel.type === 'line' ? state.sel : null));
+  if (measured && prefs.showMeasure) {
+    const L = measured, m = measure(L.x1, L.y1, L.x2, L.y2);
     if (m.m > 0.05) {
       const txt = `${m.m.toFixed(2)} ${unitName()}   ${m.a.toFixed(1)}°` + (L.arrow ? `   (x ${m.dx.toFixed(2)}, y ${m.dy.toFixed(2)})` : '');
       octx.font = '600 26px system-ui,sans-serif';
@@ -540,6 +551,15 @@ function strokeHit(st, x, y, r) {
   if (p.length === 3) return (p[0] - x) ** 2 + (p[1] - y) ** 2 < rr;
   for (let i = 3; i < p.length; i += 3) if (segDist2(x, y, p[i-3], p[i-2], p[i], p[i+1]) < rr) return true;
   return false;
+}
+function itemAt(w) {
+  const it = page().items, tol = 24 / page().view.s;
+  for (let i = it.length - 1; i >= 0; i--) {
+    const m = it[i];
+    if (m.type === 'line' && segDist2(w.x, w.y, m.x1, m.y1, m.x2, m.y2) < (tol + m.w / 2) ** 2) return m;
+    if (m.type === 'stroke' && strokeHit(m, w.x, w.y, tol)) return m;
+  }
+  return imageAt(w);
 }
 function imageAt(w) {
   const it = page().items;
@@ -724,14 +744,20 @@ function startAction(e, c) {
     laser.down = true; laser.pts.push({ x: w.x, y: w.y, t: performance.now() });
   } else if (tool === 'move') {
     const sel = state.sel, v = pg.view;
-    if (sel && pg.items.includes(sel) && Math.hypot(c.x - ((sel.x + sel.w) * v.s + v.tx), c.y - ((sel.y + sel.h) * v.s + v.ty)) < 44) {
-      active.mode = 'resize';
-    } else {
-      const hit = imageAt(w);
+    const near = (x, y, r) => Math.hypot(c.x - (x * v.s + v.tx), c.y - (y * v.s + v.ty)) < r;
+    let mode = null;
+    if (sel && pg.items.includes(sel)) {
+      if (sel.type === 'image' && near(sel.x + sel.w, sel.y + sel.h, 44)) mode = 'resize';
+      else if (sel.type === 'line' && near(sel.x2, sel.y2, 40)) mode = 'end2';
+      else if (sel.type === 'line' && near(sel.x1, sel.y1, 40)) mode = 'end1';
+    }
+    if (!mode) {
+      const hit = itemAt(w);
       if (!hit) { state.sel = null; active.mode = 'none'; updateUI(); overlayDirty = true;
         if (e.pointerType === 'touch') { active = null; startGesture(); } return; }
-      state.sel = hit; active.mode = 'move'; active.off = { x: w.x - hit.x, y: w.y - hit.y };
+      state.sel = hit; mode = 'move';
     }
+    active.mode = mode; active.w0 = w; active.orig = { ...state.sel };
     active.snapshot = pg.items.slice();
     const i = pg.items.indexOf(state.sel), clone = { ...state.sel };
     pg.items[i] = clone; state.sel = clone; active.moved = false;
@@ -763,9 +789,27 @@ function moveAction(e, c) {
   } else if (a.tool === 'laser') {
     laser.pts.push({ x: w.x, y: w.y, t: performance.now() });
   } else if (a.tool === 'move' && state.sel) {
-    const s = state.sel;
-    if (a.mode === 'move') { s.x = w.x - a.off.x; s.y = w.y - a.off.y; }
-    else if (a.mode === 'resize') { const ar = s.h / s.w; s.w = Math.max(40, w.x - s.x); s.h = s.w * ar; }
+    const s = state.sel, o = a.orig;
+    let dx = w.x - a.w0.x, dy = w.y - a.w0.y;
+    if (a.mode === 'move') {
+      if (s.type === 'image') { s.x = o.x + dx; s.y = o.y + dy; }
+      else if (s.type === 'line') {
+        if (prefs.snapGrid) { const p = snapGrid({ x: o.x1 + dx, y: o.y1 + dy }); dx = p.x - o.x1; dy = p.y - o.y1; }
+        s.x1 = r1(o.x1 + dx); s.y1 = r1(o.y1 + dy); s.x2 = r1(o.x2 + dx); s.y2 = r1(o.y2 + dy);
+      } else {
+        const p = o.pts, q = new Array(p.length);
+        for (let i = 0; i < p.length; i += 3) { q[i] = r1(p[i] + dx); q[i+1] = r1(p[i+1] + dy); q[i+2] = p[i+2]; }
+        const b = o.bb || bbox(o);
+        s.pts = q; s.bb = [b[0] + dx, b[1] + dy, b[2] + dx, b[3] + dy];
+      }
+    } else if (a.mode === 'resize') { const ar = s.h / s.w; s.w = Math.max(40, w.x - s.x); s.h = s.w * ar; }
+    else if (a.mode === 'end1' || a.mode === 'end2') {   // drag one end of a line or vector
+      const fx = a.mode === 'end2' ? s.x1 : s.x2, fy = a.mode === 'end2' ? s.y1 : s.y2;
+      let p;
+      if (prefs.snapGrid) p = snapGrid(w);
+      else { const len = Math.hypot(w.x - fx, w.y - fy), ang = snapAng(Math.atan2(w.y - fy, w.x - fx), 1.5); p = { x: fx + len * Math.cos(ang), y: fy + len * Math.sin(ang) }; }
+      if (a.mode === 'end2') { s.x2 = r1(p.x); s.y2 = r1(p.y); } else { s.x1 = r1(p.x); s.y1 = r1(p.y); }
+    }
     a.moved = true; cacheDirty = true; overlayDirty = true;
   }
 }
